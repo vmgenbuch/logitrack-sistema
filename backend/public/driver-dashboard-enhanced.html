@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Conductor - LogiTrack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .packages-container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .package-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .package-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        /* Camera Preview */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        #camera-preview {
+            width: 100%;
+            display: block;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .photo-preview {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        /* Signature Pad */
+        .signature-pad {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .signature-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-in-transit {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-delivered {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .evidence-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .evidence-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🚛 Panel de Conductor</h1>
+            <p id="userName">Cargando...</p>
+        </div>
+        <button class="btn btn-primary" id="logoutBtn">Cerrar Sesión</button>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" id="totalPackages">0</div>
+            <div>Total Asignados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="pendingPackages">0</div>
+            <div>Pendientes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="transitPackages">0</div>
+            <div>En Tránsito</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="deliveredPackages">0</div>
+            <div>Entregados</div>
+        </div>
+    </div>
+
+    <div class="packages-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2>Mis Paquetes Asignados</h2>
+            <button class="btn btn-primary" id="refreshBtn">🔄 Actualizar</button>
+        </div>
+        <div id="errorContainer"></div>
+        <div id="packagesContainer">Cargando paquetes...</div>
+    </div>
+
+    <!-- Modal: Recoger Paquete -->
+    <div id="pickupModal" class="modal" data-modal="pickup">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📦 Recoger Paquete</h2>
+                <button class="close-btn" id="closePickupBtn">&times;</button>
+            </div>
+
+            <div id="pickupInfo"></div>
+
+            <div class="form-group">
+                <label>Peso Real del Paquete (kg)</label>
+                <input type="number" id="pickupWeight" step="0.1" placeholder="Ej: 5.5">
+            </div>
+
+            <div class="form-group">
+                <label>Foto del Paquete</label>
+                <button class="btn btn-primary" id="startPickupCamera" type="button">📷 Abrir Cámara</button>
+                <div id="pickupCameraContainer" style="display: none;">
+                    <div class="camera-container">
+                        <video id="pickupCameraPreview" autoplay playsinline></video>
+                    </div>
+                    <div class="camera-controls">
+                        <button class="btn btn-success" id="capturePickupPhoto" type="button">📸 Capturar Foto</button>
+                        <button class="btn" id="stopPickupCamera" type="button">❌ Cerrar</button>
+                    </div>
+                </div>
+                <canvas id="pickupCanvas" style="display: none;"></canvas>
+                <img id="pickupPhotoPreview" class="photo-preview" style="display: none;">
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button class="btn" id="cancelPickupBtn" type="button">Cancelar</button>
+                <button class="btn btn-primary" id="confirmPickupBtn" type="button">✅ Confirmar Recogida</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Entregar Paquete -->
+    <div id="deliveryModal" class="modal" data-modal="delivery">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✅ Entregar Paquete</h2>
+                <button class="close-btn" id="closeDeliveryBtn">&times;</button>
+            </div>
+
+            <div id="deliveryInfo"></div>
+
+            <div class="form-group">
+                <label>Nombre de quien recibe *</label>
+                <input type="text" id="receiverName" placeholder="Nombre completo" required>
+            </div>
+
+            <div class="form-group">
+                <label>Cargo/Puesto</label>
+                <input type="text" id="receiverPosition" placeholder="Ej: Recepcionista">
+            </div>
+
+            <div class="form-group">
+                <label>Peso de Entrega (kg)</label>
+                <input type="number" id="deliveryWeight" step="0.1" placeholder="Peso actual">
+            </div>
+
+            <div class="form-group">
+                <label>Foto de Entrega</label>
+                <button class="btn btn-primary" id="startDeliveryCamera" type="button">📷 Abrir Cámara</button>
+                <div id="deliveryCameraContainer" style="display: none;">
+                    <div class="camera-container">
+                        <video id="deliveryCameraPreview" autoplay playsinline></video>
+                    </div>
+                    <div class="camera-controls">
+                        <button class="btn btn-success" id="captureDeliveryPhoto" type="button">📸 Capturar Foto</button>
+                        <button class="btn" id="stopDeliveryCamera" type="button">❌ Cerrar</button>
+                    </div>
+                </div>
+                <canvas id="deliveryCanvas" style="display: none;"></canvas>
+                <img id="deliveryPhotoPreview" class="photo-preview" style="display: none;">
+            </div>
+
+            <div class="form-group">
+                <label>Firma Digital *</label>
+                <canvas id="signaturePad" class="signature-pad" width="500" height="200"></canvas>
+                <div class="signature-controls">
+                    <button class="btn" id="clearSignatureBtn" type="button">🗑️ Limpiar</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button class="btn" id="cancelDeliveryBtn" type="button">Cancelar</button>
+                <button class="btn btn-success" id="confirmDeliveryBtn" type="button">✅ Confirmar Entrega</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/driver-dashboard-enhanced.js"></script>
+</body>
+</html>

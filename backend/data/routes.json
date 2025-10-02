@@ -1,0 +1,102 @@
+[
+  {
+    "id": "ruta1",
+    "nombre": "Ruta1",
+    "descripcion": "Centro histórico y zona comercial",
+    "zonaCobertura": [
+      "Centro",
+      "Barrio Antiguo",
+      "Macroplaza"
+    ],
+    "vehiculoAsignado": "Camioneta-001",
+    "capacidadMaxima": 50,
+    "pesoMaximo": 500,
+    "status": "active",
+    "estadisticas": {
+      "totalPaquetes": 3,
+      "paquetesEntregados": 1,
+      "tasaEntrega": 33.3,
+      "tiempoPromedioEntrega": 2.5,
+      "ultimaActualizacion": "2025-09-25T03:54:01.786Z"
+    },
+    "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaCreacion": "2025-09-20T21:21:21.333Z",
+    "actualizadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaActualizacion": "2025-09-25T03:54:01.786Z"
+  },
+  {
+    "id": "ruta2",
+    "nombre": "Ruta2",
+    "descripcion": "Zona residencial y comercial premium",
+    "zonaCobertura": [
+      "San Pedro",
+      "Valle Oriente",
+      "Calzada del Valle"
+    ],
+    "vehiculoAsignado": "Camioneta-002",
+    "capacidadMaxima": 40,
+    "pesoMaximo": 400,
+    "status": "active",
+    "estadisticas": {
+      "totalPaquetes": 0,
+      "paquetesEntregados": 0,
+      "tasaEntrega": 0,
+      "tiempoPromedioEntrega": 0,
+      "ultimaActualizacion": "2025-09-20T21:21:21.334Z"
+    },
+    "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaCreacion": "2025-09-20T21:21:21.334Z",
+    "actualizadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaActualizacion": "2025-09-20T21:21:21.334Z"
+  },
+  {
+    "id": "ruta3",
+    "nombre": "Ruta3",
+    "descripcion": "Zona industrial y residencial",
+    "zonaCobertura": [
+      "Santa Catarina",
+      "Fomerrey",
+      "Zona Industrial"
+    ],
+    "vehiculoAsignado": "Camioneta-003",
+    "capacidadMaxima": 60,
+    "pesoMaximo": 600,
+    "status": "active",
+    "estadisticas": {
+      "totalPaquetes": 0,
+      "paquetesEntregados": 0,
+      "tasaEntrega": 0,
+      "tiempoPromedioEntrega": 0,
+      "ultimaActualizacion": "2025-09-20T21:21:21.334Z"
+    },
+    "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaCreacion": "2025-09-20T21:21:21.334Z",
+    "actualizadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaActualizacion": "2025-09-20T21:21:21.334Z"
+  },
+  {
+    "id": "ruta4",
+    "nombre": "Ruta4",
+    "descripcion": "Zona comercial y residencial",
+    "zonaCobertura": [
+      "Guadalupe",
+      "Contry",
+      "Del Paseo"
+    ],
+    "vehiculoAsignado": "Camioneta-004",
+    "capacidadMaxima": 45,
+    "pesoMaximo": 450,
+    "status": "active",
+    "estadisticas": {
+      "totalPaquetes": 0,
+      "paquetesEntregados": 0,
+      "tasaEntrega": 0,
+      "tiempoPromedioEntrega": 0,
+      "ultimaActualizacion": "2025-09-20T21:21:21.334Z"
+    },
+    "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaCreacion": "2025-09-20T21:21:21.334Z",
+    "actualizadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+    "fechaActualizacion": "2025-09-20T21:21:21.334Z"
+  }
+]

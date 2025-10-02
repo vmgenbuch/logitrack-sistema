@@ -1,0 +1,97 @@
+-- Tabla de usuarios
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    full_name VARCHAR(100),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'logistics', 'route', 'local', 'supervisor', 'chofer')),
+    branch_id UUID,
+    sucursal VARCHAR(100),
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+
+-- Tabla de sucursales
+CREATE TABLE branches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre VARCHAR(100) NOT NULL,
+    codigo VARCHAR(20) UNIQUE NOT NULL,
+    direccion JSONB NOT NULL,
+    contacto JSONB,
+    horarios JSONB,
+    estado VARCHAR(20) DEFAULT 'activa',
+    capacidad INTEGER,
+    zona VARCHAR(50),
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de rutas
+CREATE TABLE routes (
+    id VARCHAR(50) PRIMARY KEY,  -- Cambio aquí: de UUID a VARCHAR
+    nombre VARCHAR(100) NOT NULL,
+    zona_cobertura VARCHAR(100),
+    capacidad_maxima INTEGER,
+    status VARCHAR(20) DEFAULT 'active',
+    vehiculo_asignado VARCHAR(50),
+    chofer_asignado UUID REFERENCES users(id),
+    descripcion TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla de paquetes
+CREATE TABLE packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tracking_number VARCHAR(50) UNIQUE NOT NULL,
+    cliente VARCHAR(100) NOT NULL,
+    telefono VARCHAR(20),
+    direccion TEXT NOT NULL,
+    sucursal_destino UUID REFERENCES branches(id),
+    ruta VARCHAR(50) REFERENCES routes(id),  -- Cambio aquí: de UUID a VARCHAR
+    prioridad VARCHAR(20) DEFAULT 'normal',
+    status VARCHAR(20) DEFAULT 'pending',
+    peso_estimado DECIMAL(10,2),
+    peso_salida DECIMAL(10,2),
+    peso_entrega DECIMAL(10,2),
+    descripcion TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    tiempo_salida_reparto TIMESTAMP,
+    tiempo_entrega TIMESTAMP,
+    diferencia_minutos INTEGER,
+    efectividad DECIMAL(5,2),
+    incidencia VARCHAR(50) DEFAULT 'ninguna',
+    validacion_receptor JSONB,
+    nombre_quien_recibio VARCHAR(100),
+    cargo_quien_recibio VARCHAR(100),
+    foto_salida TEXT,
+    foto_entrega TEXT,
+    firma_digital TEXT
+);
+
+-- Tabla de incidentes independientes
+CREATE TABLE incidents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tracking_number VARCHAR(50),
+    package_id UUID REFERENCES packages(id),
+    type VARCHAR(50) NOT NULL,
+    severity VARCHAR(20),
+    description TEXT NOT NULL,
+    photo TEXT,
+    reported_by VARCHAR(100),
+    branch_id VARCHAR(50),  -- Cambio aquí: de UUID a VARCHAR (sin foreign key)
+    branch_name VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    resolution TEXT
+);
+
+-- Índices para mejorar rendimiento
+CREATE INDEX idx_packages_tracking ON packages(tracking_number);
+CREATE INDEX idx_packages_status ON packages(status);
+CREATE INDEX idx_packages_ruta ON packages(ruta);
+CREATE INDEX idx_packages_fecha ON packages(fecha_creacion);
+CREATE INDEX idx_incidents_status ON incidents(status);
+CREATE INDEX idx_incidents_branch ON incidents(branch_id);

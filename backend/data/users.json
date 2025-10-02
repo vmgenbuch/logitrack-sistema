@@ -1,0 +1,107 @@
+[
+  {
+    "id": "98da2f52-98bd-4975-a50f-faee75292748",
+    "nombre": "Administrador del Sistema",
+    "email": "admin@logistics.com",
+    "telefono": "",
+    "password": "$2b$10$EMda0FnyH8PSWyUYywUCNe551732IY09NEsaB8g7ViyhUrGmyBNvG",
+    "rol": "admin",
+    "estado": "activo",
+    "fechaCreacion": "2025-09-20T19:43:27.160Z",
+    "lastLogin": "2025-10-01T22:59:12.122Z"
+  },
+  {
+    "id": "3967c41e-d432-40e8-a668-dd97710312d9",
+    "fullName": "Alex",
+    "email": "logistica@molecula83.com.mx",
+    "phone": "",
+    "password": "$2a$10$VhwXES4KbuHoewHcWrB2ReijSh04Bjlrh6JFWRjs/5dr3GAizOqDm",
+    "role": "logistics",
+    "active": true,
+    "createdAt": "2025-09-22T01:32:59.158Z",
+    "metadata": {
+      "createdBy": "98da2f52-98bd-4975-a50f-faee75292748",
+      "preferences": {
+        "language": "es",
+        "timezone": "America/Monterrey"
+      }
+    },
+    "lastLogin": "2025-09-26T16:51:11.279Z"
+  },
+  {
+    "id": "5e3d2e3d-3965-4429-8792-f515ad018dd2",
+    "fullName": "Ruta1",
+    "email": "ruta1@molecula83.com.mx",
+    "phone": "",
+    "password": "$2a$10$EEN/qbJQVYRI.B7lupVMGeJ6UOQcUEuNsBOIQhsN6Bx5E1D2/1cwq",
+    "role": "chofer",
+    "ruta": "ruta1",
+    "active": true,
+    "createdAt": "2025-09-22T17:26:32.438Z",
+    "metadata": {
+      "createdBy": "98da2f52-98bd-4975-a50f-faee75292748",
+      "preferences": {
+        "language": "es",
+        "timezone": "America/Monterrey"
+      }
+    },
+    "lastLogin": "2025-09-26T16:51:37.554Z"
+  },
+  {
+    "id": "3df46d62-3c0f-47d5-bad4-b76c0c742a9c",
+    "fullName": "Almacenista Barragan",
+    "role": "local",
+    "email": "almacenistabarragan@generales.com.mx",
+    "phone": "",
+    "branchId": "d392c46f-1f6c-4b69-a42a-6371e83ecb3e",
+    "sucursal": "Generales Barragan",
+    "password": "$2a$10$OkPDVxi/YbX.AqqS7RnhXuBVfzsgCG9bEI9CqkS3RSFgLKMo26Ppe",
+    "active": true,
+    "createdAt": "2025-10-01T16:21:54.143Z",
+    "metadata": {
+      "createdBy": "98da2f52-98bd-4975-a50f-faee75292748",
+      "preferences": {
+        "language": "es",
+        "timezone": "America/Monterrey"
+      }
+    }
+  },
+  {
+    "id": "5f981e28-85fe-47ab-8607-304d45c7530d",
+    "fullName": "Ruta2",
+    "role": "chofer",
+    "email": "ruta2@molecula83.com.mx",
+    "phone": "",
+    "branchId": null,
+    "sucursal": null,
+    "password": "$2a$10$l1gf/O1uzZxRa6RavB3pOOCZxslvvwXCj4tfS7Z4Fb0tdQfOowN/O",
+    "active": true,
+    "createdAt": "2025-10-01T16:22:50.552Z",
+    "metadata": {
+      "createdBy": "98da2f52-98bd-4975-a50f-faee75292748",
+      "preferences": {
+        "language": "es",
+        "timezone": "America/Monterrey"
+      }
+    }
+  },
+  {
+    "id": "f6d02be5-c894-48d4-ad07-f899df796143",
+    "fullName": "Almacen Galerias",
+    "role": "local",
+    "email": "almacengalerias@generales.com.mx",
+    "phone": "",
+    "branchId": "485a0686-8126-45fa-8e13-d2cc8e9542ac",
+    "sucursal": "Generales Galerias",
+    "password": "$2a$10$8/E2fn3yLXtaDW3mdWMmj./bJ7.jU67P3Vzkz2LGlp5dklfGEo7F2",
+    "active": true,
+    "createdAt": "2025-10-01T16:26:43.230Z",
+    "metadata": {
+      "createdBy": "98da2f52-98bd-4975-a50f-faee75292748",
+      "preferences": {
+        "language": "es",
+        "timezone": "America/Monterrey"
+      }
+    }
+  }
+]

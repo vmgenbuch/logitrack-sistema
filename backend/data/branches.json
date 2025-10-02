@@ -1,0 +1,70 @@
+[
+  {
+    "id": "485a0686-8126-45fa-8e13-d2cc8e9542ac",
+    "nombre": "Generales Galerias",
+    "codigo": "MTY-01",
+    "direccion": {
+      "calle": "Bolivia 98",
+      "colonia": "San Jeronimo",
+      "ciudad": "Monterrey",
+      "estado": "Nuevo Leon",
+      "codigoPostal": "64630"
+    },
+    "contacto": {
+      "telefono": "8183335940",
+      "email": "galerias@generales.com.mx",
+      "responsable": "Domingo Moncada"
+    },
+    "horarios": {
+      "lunes": "08:00-18:00",
+      "martes": "08:00-18:00",
+      "miercoles": "08:00-18:00",
+      "jueves": "08:00-18:00",
+      "viernes": "08:00-18:00",
+      "sabado": "08:00-14:00",
+      "domingo": "Cerrado"
+    },
+    "estado": "activa",
+    "capacidad": 10,
+    "zona": "Centro",
+    "fechaCreacion": "2025-09-22T17:58:15.190Z",
+    "metadata": {
+      "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+      "ultimaActualizacion": "2025-09-22T17:58:15.190Z"
+    }
+  },
+  {
+    "id": "d392c46f-1f6c-4b69-a42a-6371e83ecb3e",
+    "nombre": "Generales Barragan",
+    "codigo": "MTY-02",
+    "direccion": {
+      "calle": "Manuel L Barragan 240",
+      "colonia": "Residencial Anahuac 1er Sector",
+      "ciudad": "San Nicolás de los Garza",
+      "estado": "Nuevo Leon",
+      "codigoPostal": "66457"
+    },
+    "contacto": {
+      "telefono": "8183325447",
+      "email": "barragan@generales.com.mx",
+      "responsable": "Oscar"
+    },
+    "horarios": {
+      "lunes": "08:00-18:00",
+      "martes": "08:00-18:00",
+      "miercoles": "08:00-18:00",
+      "jueves": "08:00-18:00",
+      "viernes": "08:00-18:00",
+      "sabado": "08:00-14:00",
+      "domingo": "Cerrado"
+    },
+    "estado": "activa",
+    "capacidad": 50,
+    "zona": "Norte",
+    "fechaCreacion": "2025-10-01T15:53:59.402Z",
+    "metadata": {
+      "creadoPor": "98da2f52-98bd-4975-a50f-faee75292748",
+      "ultimaActualizacion": "2025-10-01T15:53:59.402Z"
+    }
+  }
+]

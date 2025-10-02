@@ -1,0 +1,18 @@
+[
+  {
+    "id": "62808aec-b07e-4e9a-a0da-45cd0a3cdcb8",
+    "trackingNumber": "Sin tracking",
+    "packageId": null,
+    "type": "no_recibido",
+    "severity": "alta",
+    "description": "no ha llegado",
+    "photo": null,
+    "reportedBy": "Juan Pérez - Receptor",
+    "branchId": "local-001",
+    "branchName": "Generales Galerías",
+    "status": "pending",
+    "createdAt": "2025-09-29T17:00:54.355Z",
+    "resolvedAt": null,
+    "resolution": null
+  }
+]

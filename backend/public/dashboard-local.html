@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptor Local - LogiTrack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .search-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #3182ce;
+        }
+
+        .btn-success {
+            background: #48bb78;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .package-details {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .package-details.active {
+            display: block;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .detail-item {
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status-delivered {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-pending {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .validation-window {
+            background: #fef5e7;
+            border-left: 4px solid #dd6b20;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        .validation-window.expired {
+            background: #fed7d7;
+            border-left-color: #c53030;
+        }
+
+        .validation-window.validated {
+            background: #c6f6d5;
+            border-left-color: #22543d;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .photo-upload {
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .photo-upload:hover {
+            border-color: #4299e1;
+            background: #f7fafc;
+        }
+
+        .photo-preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 1rem;
+            border-radius: 8px;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+
+        .alert-warning {
+            background: #fef5e7;
+            color: #dd6b20;
+        }
+
+        .pending-packages {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .pending-list {
+            margin-top: 1rem;
+        }
+
+        .pending-item {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pending-item:hover {
+            background: #f7fafc;
+            border-color: #4299e1;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">📦 LogiTrack - Receptor Local</div>
+            <div class="user-info">
+                <span>Bienvenido, <strong id="userName">Usuario</strong></span>
+                <button class="logout-btn" id="logoutBtn">Cerrar Sesión</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div id="alertContainer"></div>
+
+        <!-- Búsqueda de paquete -->
+        <div class="search-section">
+            <h2 style="margin-bottom: 1rem;">Validar Paquete Recibido</h2>
+            <div class="search-box">
+                <input type="text" id="trackingSearch" class="form-control" 
+                       placeholder="Ingresa el número de tracking...">
+                <button class="btn" id="searchBtn">Buscar</button>
+            </div>
+        </div>
+
+        <!-- Reportar Incidente sin Tracking -->
+       <div class="search-section" style="border-left: 4px solid #f56565;">
+            <h2 style="margin-bottom: 1rem; color: #c53030;">⚠️ Reportar Incidente</h2>
+            <p style="color: #718096; margin-bottom: 1rem;">
+                  Reporta paquetes que no han llegado o cualquier otra incidencia sin necesidad de tracking
+            </p>
+            <div class="search-box">
+                 <input type="text" id="incidentTrackingInput" class="form-control" 
+                      placeholder="Número de tracking (opcional)">
+                 <button class="btn btn-danger" id="reportNewIncidentBtn">Reportar Incidente</button>
+           </div>
+       </div>
+
+        <!-- Detalles del paquete -->
+        <div id="packageDetails" class="package-details">
+            <!-- Se llenará dinámicamente -->
+        </div>
+
+        <!-- Paquetes pendientes de validación -->
+        <div class="pending-packages">
+            <h2 style="margin-bottom: 1rem;">Paquetes Pendientes de Validación</h2>
+            <div id="pendingList" class="pending-list">
+                <p style="color: #718096;">Cargando paquetes...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Levantar Incidente -->
+    <div id="incidentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Levantar Incidente</h3>
+            <button class="close-btn" id="closeIncidentModal">&times;</button>
+        </div>
+        <form id="incidentForm">
+            <div class="form-group">
+                <label>Tipo de Incidente *</label>
+                <select id="incidentType" required>
+                    <option value="">Seleccionar...</option>
+                    <option value="producto_dañado">Producto Dañado</option>
+                    <option value="producto_incompleto">Producto Incompleto</option>
+                    <option value="mal_estado">En Mal Estado</option>
+                    <option value="no_corresponde">No Corresponde al Pedido</option>
+                    <option value="no_recibido">Pedido No Recibido</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Severidad *</label>
+                <select id="severidad" required>
+                    <option value="">Seleccionar...</option>
+                    <option value="baja">Baja</option>
+                    <option value="media">Media</option>
+                    <option value="alta">Alta - Requiere Devolución</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción del Incidente *</label>
+                <textarea id="incidentDescription" required 
+                          placeholder="Describe detalladamente el problema..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Foto de Evidencia (opcional)</label>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <button type="button" class="btn" id="startCameraBtn">📷 Abrir Cámara</button>
+                    <button type="button" class="btn" id="uploadPhotoBtn">📁 Subir Archivo</button>
+                </div>
+                
+                <!-- Cámara en vivo -->
+                <div id="cameraContainer" style="display: none; margin-bottom: 1rem;">
+                    <video id="cameraPreview" autoplay playsinline style="width: 100%; max-width: 500px; border-radius: 8px;"></video>
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button type="button" class="btn btn-success" id="capturePhotoBtn">📸 Capturar Foto</button>
+                        <button type="button" class="btn btn-danger" id="stopCameraBtn">✖️ Cerrar Cámara</button>
+                    </div>
+                </div>
+                
+                <!-- Canvas oculto para captura -->
+                <canvas id="photoCanvas" style="display: none;"></canvas>
+                
+                <!-- Input de archivo (oculto) -->
+                <input type="file" id="incidentPhoto" accept="image/*" style="display: none;">
+                
+                <!-- Preview de la foto -->
+                <img id="photoPreview" class="photo-preview" style="display: none;">
+            </div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                <button type="button" class="btn" id="cancelIncidentBtn">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Levantar Incidente</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+    <script src="js/local-receiver.js"></script>
+</body>
+</html>
