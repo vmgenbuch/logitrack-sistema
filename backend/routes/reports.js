@@ -217,9 +217,10 @@ router.get('/route-performance', async (req, res) => {
                     totalPackages: total,
                     deliveredPackages: delivered,
                     deliveryRate: total > 0 ? parseFloat((delivered / total * 100).toFixed(1)) : 0,
-                    avgDeliveryTime: parseFloat((metrics.avg_delivery_time || 0).toFixed(1)),
-                    avgEffectiveness: parseFloat((metrics.avg_effectiveness || 0).toFixed(1)),
-                    avgWeight: parseFloat((metrics.avg_weight || 0).toFixed(1))
+                    avgDeliveryTime: parseFloat(parseFloat(metrics.avg_delivery_time || 0).toFixed(1)),
+                    avgEffectiveness: parseFloat(parseFloat(metrics.avg_effectiveness || 0).toFixed(1)),
+                    avgWeight: parseFloat(parseFloat(metrics.avg_weight || 0).toFixed(1))
+                    
                 }
             };
         }));

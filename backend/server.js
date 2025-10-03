@@ -24,6 +24,8 @@ const incidentsRoutes = require('./routes/incidents');
 const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
+// Trust Railway proxy
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Crear directorios necesarios
