@@ -165,7 +165,7 @@ async function cargarRutas() {
         const token = localStorage.getItem('token');
         
         // 🎯 USAR LA API REAL DE RUTAS (endpoint público)
-        const response = await fetch('/api/public/routes', {
+        const response = await fetch('/api/public/routes-management', {
             headers: {
                 'Content-Type': 'application/json'
             }
