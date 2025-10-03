@@ -192,6 +192,15 @@ app.use((error, req, res, next) => {
     });
 });
 
+// Servir archivos estáticos del frontend
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Ruta catch-all para el frontend
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend', 'login.html'));
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`🚚 Servidor de logística iniciado en puerto ${PORT}`);

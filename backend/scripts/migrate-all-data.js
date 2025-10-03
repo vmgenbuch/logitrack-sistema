@@ -3,9 +3,11 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: false
+    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
+
+console.log('🔗 Conectando a:', process.env.DATABASE_URL?.substring(0, 50) + '...');
 
 async function migrateAllData() {
     const client = await pool.connect();
