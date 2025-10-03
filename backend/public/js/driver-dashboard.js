@@ -180,7 +180,7 @@ function displayPackages() {
     
     let html = '';
     packages.forEach(pkg => {
-        const createdDate = new Date(pkg.fechaCreacion).toLocaleDateString('es-MX');
+        const createdDate = safeFormatDate(pkg.fechaCreacion);
         html += '<div class="package-item">';
         html += '<div class="package-info">';
         html += '<div class="package-main">';
@@ -262,7 +262,7 @@ function viewDetails(packageId) {
             'Estado: ' + getStatusText(pkg.status) + '\n' +
             'Peso: ' + pkg.pesoSalida + ' kg\n' +
             'Prioridad: ' + getPriorityText(pkg.prioridad) + '\n' +
-            'Fecha creación: ' + new Date(pkg.fechaCreacion).toLocaleString('es-MX');
+            'Fecha creación: ' + safeFormatDateTime(pkg.fechaCreacion);
         alert(details);
     }
 }
@@ -439,7 +439,7 @@ function displayPackages() {
     
     let html = '';
     packages.forEach(pkg => {
-        const createdDate = new Date(pkg.fechaCreacion).toLocaleDateString('es-MX');
+        const createdDate = safeFormatDate(pkg.fechaCreacion);
         html += '<div class="package-item">';
         html += '<div class="package-info">';
         html += '<div class="package-main">';

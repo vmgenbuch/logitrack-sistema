@@ -170,7 +170,7 @@ function displayPackageDetails(pkg) {
             </div>
             <div class="detail-item">
                 <div class="detail-label">Fecha Entrega</div>
-                <div class="detail-value">${pkg.tiempoEntrega ? new Date(pkg.tiempoEntrega).toLocaleString('es-MX') : 'N/A'}</div>
+                <div class="detail-value">${pkg.tiempoEntrega ? safeFormatDateTime(pkg.tiempoEntrega) : 'N/A'}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Efectividad</div>
@@ -216,7 +216,7 @@ function calculateValidationWindow(pkg) {
         };
     }
     
-    const deliveryTime = new Date(pkg.tiempoEntrega);
+    const deliveryTime = safeParseDate(pkg.tiempoEntrega);
     const now = new Date();
     const fourHoursLater = new Date(deliveryTime.getTime() + (4 * 60 * 60 * 1000));
     

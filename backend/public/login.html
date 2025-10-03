@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
     <title>Logística Monterrey - Iniciar Sesión</title>
     <style>
         * {
@@ -222,6 +224,145 @@
         <div class="loading" id="loading"></div>
     </div>
 
-    <script src="js/login.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        // Verificar estado del servidor
+        async function checkServerStatus() {
+            const statusElement = document.getElementById('systemStatus');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = `Sistema: ${data.status} (${data.environment})`;
+                    statusElement.className = 'system-status status-online';
+                } else {
+                    throw new Error('Server not responding properly');
+                }
+            } catch (error) {
+                statusElement.textContent = 'Sistema: Desconectado';
+                statusElement.className = 'system-status status-offline';
+                console.error('Error verificando servidor:', error);
+            }
+        }
+
+        // Mostrar alerta
+        function showAlert(message, type = 'error') {
+            const container = document.getElementById('alertContainer');
+            container.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Manejar formulario de login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loading = document.getElementById('loading');
+            
+            // Mostrar loading
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Iniciando sesión...';
+            loading.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Guardar token y datos del usuario
+                    localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    showAlert('¡Inicio de sesión exitoso! Redirigiendo...', 'success');
+                    
+                    // Redirigir según el rol
+                    setTimeout(() => {
+                        const userRole = data.data.user.role;
+                        switch(userRole) {
+                            case 'admin':
+                                window.location.href = 'dashboard-admin.html';
+                                break;
+                            case 'logistics':
+                                window.location.href = 'dashboard-logistics.html';
+                                break;
+                            case 'route':
+                                window.location.href = 'dashboard-route.html';
+                                break;
+                            case 'local':
+                                window.location.href = 'dashboard-local.html';
+                                break;
+                            default:
+                                window.location.href = 'dashboard.html';
+                        }
+                    }, 1500);
+                    
+                } else {
+                    showAlert(data.message || 'Error en el inicio de sesión');
+                }
+                
+            } catch (error) {
+                console.error('Error en login:', error);
+                showAlert('Error de conexión. Verifica que el servidor esté funcionando.');
+            } finally {
+                // Ocultar loading
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Iniciar Sesión';
+                loading.style.display = 'none';
+            }
+        });
+
+        // Auto-llenar credenciales de demo en desarrollo
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('username').value = 'admin';
+            document.getElementById('password').value = 'admin123';
+            
+            // Verificar servidor cada 30 segundos
+            checkServerStatus();
+            setInterval(checkServerStatus, 30000);
+        });
+
+        // Verificar si ya está logueado
+        const token = localStorage.getItem('token');
+        if (token) {
+            // Verificar si el token sigue siendo válido
+            fetch(`${API_BASE}/auth/profile`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Token válido, redirigir al dashboard
+                    const user = JSON.parse(localStorage.getItem('userData'));
+                    if (user && user.role) {
+                        window.location.href = `dashboard-${user.role}.html`;
+                    }
+                }
+            })
+            .catch(error => {
+                // Token inválido, limpiar storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('userData');
+            });
+        }
+    </script>
 </body>
 </html>

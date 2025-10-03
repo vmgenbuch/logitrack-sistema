@@ -12,6 +12,33 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
 });
 
+function safeFormatDate(dateString, options = {}) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '-';
+        return date.toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            ...options
+        });
+    } catch (e) {
+        return '-';
+    }
+}
+
+function safeFormatDateTime(dateString) {
+    if (!dateString) return '-';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '-';
+        return date.toLocaleString('es-MX');
+    } catch (e) {
+        return '-';
+    }
+}
+
 // Configurar fechas por defecto (día actual)
 function configurarFechasPorDefecto() {
     const hoy = new Date();
@@ -275,7 +302,7 @@ function applyFilters() {
         
         let matchesDate = true;
         if (fechaDesde || fechaHasta) {
-            const pkgDate = new Date(pkg.fechaCreacion).toISOString().split('T')[0];
+            const pkgDate = pkg.fechaCreacion ? new Date(pkg.fechaCreacion).toISOString().split('T')[0] : '';
             
             if (fechaDesde && fechaHasta) {
                 matchesDate = pkgDate >= fechaDesde && pkgDate <= fechaHasta;
@@ -374,7 +401,7 @@ function createPackageRow(pkg) {
     const route = routes.find(r => r.id === pkg.ruta);
     const routeName = route ? route.nombre : 'Ruta no encontrada';
     
-    const createdDate = new Date(pkg.fechaCreacion).toLocaleDateString('es-MX', {
+    const createdDate = safeFormatDate(pkg.fechaCreacion, {
         day: '2-digit',
         month: '2-digit',
         year: '2-digit'
@@ -836,7 +863,7 @@ function createPackageRow(pkg) {
     const route = routes.find(r => r.id === pkg.ruta);
     const routeName = route ? route.nombre : 'Ruta no encontrada';
     
-    const createdDate = new Date(pkg.fechaCreacion).toLocaleDateString('es-MX', {
+    const createdDate = safeFormatDate(pkg.fechaCreacion, {
         day: '2-digit',
         month: '2-digit',
         year: '2-digit'
@@ -1038,9 +1065,9 @@ function viewPackage(packageId) {
         Peso Salida: ${pkg.pesoSalida} kg
         Peso Entrega: ${pkg.pesoEntrega || 'Pendiente'} kg
         
-        Fecha Creación: ${new Date(pkg.fechaCreacion).toLocaleString('es-MX')}
-        ${pkg.tiempoSalidaReparto ? `Salida a Reparto: ${new Date(pkg.tiempoSalidaReparto).toLocaleString('es-MX')}` : ''}
-        ${pkg.tiempoEntrega ? `Tiempo Entrega: ${new Date(pkg.tiempoEntrega).toLocaleString('es-MX')}` : ''}
+        Fecha Creación: ${safeFormatDateTime(pkg.fechaCreacion)}
+        ${pkg.tiempoSalidaReparto ? `Salida a Reparto: ${safeFormatDateTime(pkg.tiempoSalidaReparto)}` : ''}
+        ${pkg.tiempoEntrega ? `Tiempo Entrega: ${safeFormatDateTime(pkg.tiempoEntrega)}` : ''}
         
         Descripción: ${pkg.descripcion || 'No especificada'}
         Incidencia: ${pkg.incidencia}

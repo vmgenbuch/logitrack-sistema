@@ -424,7 +424,7 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
         // Convertir fechas ISO a hora local
         let tiempoSalida = '-';
         if (pkg.tiempoSalidaReparto) {
-            const fecha = new Date(pkg.tiempoSalidaReparto);
+            const fecha = safeParseDate(pkg.tiempoSalidaReparto);
             if (!isNaN(fecha.getTime())) {
                 tiempoSalida = fecha.toLocaleTimeString('es-MX', { 
                     hour: '2-digit', 
@@ -436,7 +436,7 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
         
         let tiempoEntrega = '-';
         if (pkg.tiempoEntrega) {
-            const fecha = new Date(pkg.tiempoEntrega);
+            const fecha = safeParseDate(pkg.tiempoEntrega);
             if (!isNaN(fecha.getTime())) {
                 tiempoEntrega = fecha.toLocaleTimeString('es-MX', { 
                     hour: '2-digit', 
