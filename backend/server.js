@@ -12,14 +12,13 @@ const logisticsRoutes = require('./routes/logistics');
 const routeRoutes = require('./routes/route');
 const localRoutes = require('./routes/local');
 const reportsRoutes = require('./routes/reports');
-const packagesRoutes = require('./routes/packages'); // Nueva
-const routesManagementRoutes = require('./routes/routes-management'); // Nueva
+const packagesRoutes = require('./routes/packages');
+const routesManagementRoutes = require('./routes/routes-management');
 const reportsLogitackRouter = require('./routes/reports-logitrack');
 const branchesRoutes = require('./routes/branches');
 const publicRoutes = require('./routes/public');
 const labelsRoutes = require('./routes/labels');
 const incidentsRoutes = require('./routes/incidents');
-
 
 // Importar middleware de autenticación
 const { authenticateToken } = require('./middleware/auth');
@@ -47,11 +46,11 @@ const dataFiles = {
 Object.entries(dataFiles).forEach(([key, filePath]) => {
     if (!fs.existsSync(filePath)) {
         const initialData = key === 'users' ? 
-            [{ // Usuario admin por defecto
+            [{
                 id: 'admin-001',
                 username: 'admin',
                 email: 'admin@logistics.com',
-                password: '$2a$10$8K1p/a1a1A1oO1c1n1t1.uOyG6Nm.QzO5U5Q5m5J5k5D5f5G5h5I5j', // password: admin123
+                password: '$2a$10$8K1p/a1a1A1oO1c1n1t1.uOyG6Nm.QzO5U5Q5m5J5k5D5f5G5h5I5j',
                 role: 'admin',
                 fullName: 'Administrador del Sistema',
                 active: true,
@@ -70,36 +69,24 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "http://localhost:9100", "http://localhost:3350"], // Agregado localhost:9100
+            scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "http://localhost:9100", "http://localhost:3350"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "http://localhost:9100", "http://localhost:3350"], // También agregar aquí
+            connectSrc: ["'self'", "http://localhost:9100", "http://localhost:3350"],
         },
     },
 }));
 
-/*app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'", "https://cdn.jsdelivr.net"], 
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"],
-        },
-    },
-}));*/
-
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? 
-        ['https://tu-dominio.com'] : 
+        ['https://logitrack-sistema-production.up.railway.app'] : 
         ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // máximo 100 requests por ventana
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     message: 'Demasiadas solicitudes desde esta IP, intenta de nuevo más tarde.'
 });
 app.use('/api/', limiter);
@@ -126,14 +113,11 @@ app.use('/api/logistics', authenticateToken, logisticsRoutes);
 app.use('/api/route', authenticateToken, routeRoutes);
 app.use('/api/local', authenticateToken, localRoutes);
 app.use('/api/reports', authenticateToken, reportsRoutes);
-app.use('/api/packages', packagesRoutes); // Nueva - incluye su propia autenticación
-app.use('/api/routes-management', routesManagementRoutes); // Nueva - incluye su propia autenticación
+app.use('/api/packages', packagesRoutes);
+app.use('/api/routes-management', routesManagementRoutes);
 app.use('/api/reports-logitrack', reportsLogitackRouter);
 app.use('/api/admin', authenticateToken, branchesRoutes);
-app.use('/api/public', require('./routes/publicRoutes'));
 app.use('/api/labels', labelsRoutes);
-
-
 
 // Ruta de salud del sistema
 app.get('/api/health', (req, res) => {
@@ -145,7 +129,6 @@ app.get('/api/health', (req, res) => {
         version: '1.0.0'
     };
     
-    // Verificar estado de archivos JSON
     const fileStatus = {};
     Object.entries(dataFiles).forEach(([key, filePath]) => {
         fileStatus[key] = fs.existsSync(filePath) ? 'OK' : 'MISSING';
@@ -155,8 +138,13 @@ app.get('/api/health', (req, res) => {
     res.json(healthCheck);
 });
 
-// Manejo de errores 404
-app.use('*', (req, res) => {
+// Ruta raíz muestra el login
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Manejo de errores 404 para rutas API
+app.use('/api/*', (req, res) => {
     res.status(404).json({
         success: false,
         message: 'Ruta no encontrada',
@@ -168,7 +156,6 @@ app.use('*', (req, res) => {
 app.use((error, req, res, next) => {
     console.error('Error del servidor:', error);
     
-    // Log del error
     const errorLog = {
         timestamp: new Date().toISOString(),
         error: error.message,
@@ -192,23 +179,12 @@ app.use((error, req, res, next) => {
     });
 });
 
-// Servir archivos estáticos del frontend
-const path = require('path');
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-// Ruta catch-all para el frontend
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend', 'login.html'));
-});
-
 // Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`🚚 Servidor de logística iniciado en puerto ${PORT}`);
-    console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📊 Dashboard disponible en: http://localhost:${PORT}`);
-    console.log(`🔧 API Health check: http://localhost:${PORT}/api/health`);
-    console.log(`📦 API Paquetes: http://localhost:${PORT}/api/packages`);
-    console.log(`🛣️  API Rutas: http://localhost:${PORT}/api/routes-management`);
+    console.log(`Servidor de logística iniciado en puerto ${PORT}`);
+    console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Dashboard disponible en: http://localhost:${PORT}`);
+    console.log(`API Health check: http://localhost:${PORT}/api/health`);
 });
 
 module.exports = app;
