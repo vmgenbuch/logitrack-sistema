@@ -97,9 +97,7 @@ function generateRoleBasedMenu() {
             
         case 'logistics':
             menuItems = [
-                { href: 'packages.html', text: 'Paquetes', active: true },
-                { href: 'routes.html', text: 'Rutas' },
-                { href: 'reports.html', text: 'Reportes' }
+                { href: 'packages.html', text: 'Paquetes', active: true }
             ];
             break;
             

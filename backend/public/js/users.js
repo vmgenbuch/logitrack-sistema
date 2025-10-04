@@ -689,11 +689,9 @@ function generateRoleBasedMenu() {
             break;
             
         case 'logistics':
-            menuItems = [
-                { href: 'packages.html', text: 'Paquetes' },
-                { href: 'routes.html', text: 'Rutas' }
-           ];
-            break;
+             alert('No tienes permisos para acceder a esta sección.');
+             window.location.href = 'packages.html';
+            return;
             
         default:
             // Otros roles no deberían acceder a usuarios
