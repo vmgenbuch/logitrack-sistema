@@ -36,4 +36,3 @@ function safeParseDate(dateString) {
         return null;
     }
 }
-EOF
