@@ -289,6 +289,7 @@
                 if (response.ok) {
                     // Guardar token y datos del usuario
                     localStorage.setItem('token', data.data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.data.user));
                     localStorage.setItem('user', JSON.stringify(data.data.user));
                     
                     showAlert('¡Inicio de sesión exitoso! Redirigiendo...', 'success');
