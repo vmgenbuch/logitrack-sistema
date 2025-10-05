@@ -26,7 +26,7 @@ function safeFormatDateTime(dateString) {
 }
 
 function safeParseDate(dateString) {
-    if (!dateString) return null;
+    if (!dateString || dateString === '-') return null;
     try {
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? null : date;
