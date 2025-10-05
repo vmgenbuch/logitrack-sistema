@@ -12,21 +12,25 @@ router.use(authorizeRoles('admin', 'logistics'));
 // GET /api/reports/dashboard - Dashboard principal de reportes
 router.get('/dashboard', async (req, res) => {
     try {
-        const endDate = moment().endOf('day');
-        const startDate = moment().startOf('day');
+        // Usar fecha local del servidor sin moment
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
+        console.log('=== DEBUG DASHBOARD ===');
+        console.log('Fecha servidor:', today);
         
         // Paquetes del día
         const packagesResult = await pool.query(
             `SELECT * FROM packages 
-             WHERE (status = 'delivered' AND DATE(tiempo_entrega) = $1)
-             OR (status != 'delivered' AND DATE(fecha_creacion) = $1)`,
-            [startDate.format('YYYY-MM-DD')]
+             WHERE DATE(fecha_creacion) = $1 
+             OR (status = 'delivered' AND DATE(tiempo_entrega) = $1)`,
+            [today]
         );
         
         const filteredPackages = packagesResult.rows;
-        
-        console.log('=== DEBUG DASHBOARD ===');
-        console.log('Fecha actual:', moment().format('YYYY-MM-DD'));
         console.log('Packages del día:', filteredPackages.length);
         console.log('=======================');
 
@@ -50,17 +54,19 @@ router.get('/dashboard', async (req, res) => {
         // Tendencias diarias (últimos 7 días)
         const dailyStats = [];
         for (let i = 6; i >= 0; i--) {
-            const date = moment().subtract(i, 'days');
-            const dateFormatted = date.format('YYYY-MM-DD');
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
             
             const dayResult = await pool.query(
                 `SELECT 
                     COUNT(*) as total,
                     COUNT(CASE WHEN status = 'delivered' THEN 1 END) as delivered
                  FROM packages 
-                 WHERE (status = 'delivered' AND DATE(tiempo_entrega) = $1)
-                 OR (status != 'delivered' AND DATE(fecha_creacion) = $1)`,
-                [dateFormatted]
+                 WHERE DATE(fecha_creacion) = $1 
+                 OR (status = 'delivered' AND DATE(tiempo_entrega) = $1)`,
+                [dateStr]
             );
             
             const dayData = dayResult.rows[0];
@@ -68,8 +74,8 @@ router.get('/dashboard', async (req, res) => {
             const delivered = parseInt(dayData.delivered);
             
             dailyStats.push({
-                date: dateFormatted,
-                day: date.format('ddd'),
+                date: dateStr,
+                day: dayNames[d.getDay()],
                 packages: total,
                 delivered: delivered,
                 deliveryRate: total > 0 ? (delivered / total * 100).toFixed(1) : 0
@@ -81,7 +87,7 @@ router.get('/dashboard', async (req, res) => {
             `SELECT status, COUNT(*) FROM packages 
              WHERE DATE(fecha_creacion) = $1 
              GROUP BY status`,
-            [startDate.format('YYYY-MM-DD')]
+            [today]
         );
         
         const statusDistribution = {
@@ -93,8 +99,8 @@ router.get('/dashboard', async (req, res) => {
 
         const dashboardData = {
             period: {
-                startDate: startDate.format('YYYY-MM-DD'),
-                endDate: endDate.format('YYYY-MM-DD')
+                startDate: today,
+                endDate: today
             },
             summary: {
                 totalPackages,
