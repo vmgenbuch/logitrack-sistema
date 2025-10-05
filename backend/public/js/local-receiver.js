@@ -496,7 +496,7 @@ async function loadPendingPackages() {
         
         if (data.success) {
             // Filtrar solo paquetes entregados y pendientes de validación
-            const pendingPackages = data.data.packages.filter(pkg => {
+            const pendingPackages = (data.data.packages || []).map(mapPackageFromAPI).filter(pkg => {
                 const isDelivered = pkg.status === 'delivered';
                 const isPending = pkg.validacionReceptor?.statusValidacion === 'pendiente';
                 const window = calculateValidationWindow(pkg);

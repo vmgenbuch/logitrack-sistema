@@ -403,7 +403,7 @@ async function loadPackages() {
         const data = await response.json();
         
         if (data.success) {
-            packages = data.data.packages;
+            packages = (data.data.packages || []).map(mapPackageFromAPI);
             updateStatistics();
             displayPackages();
             clearError();

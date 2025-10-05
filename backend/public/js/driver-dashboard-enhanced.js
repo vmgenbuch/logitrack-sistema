@@ -95,7 +95,7 @@ async function loadPackages() {
         const data = await response.json();
         
         if (data.success) {
-            packages = data.data.packages || [];
+            packages = (data.data.packages || []).map(mapPackageFromAPI);
             console.log(`Paquetes cargados: ${packages.length}`);
             updateStatistics();
             displayPackages();
