@@ -1,26 +1,10 @@
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
+const pool = require('../database/connection');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'logistics-monterrey-secret-key-2024';
-const usersFilePath = path.join(__dirname, '../data/users.json');
-
-// Función para leer usuarios del archivo JSON
-const getUsers = () => {
-    try {
-        if (fs.existsSync(usersFilePath)) {
-            const data = fs.readFileSync(usersFilePath, 'utf8');
-            return JSON.parse(data);
-        }
-        return [];
-    } catch (error) {
-        console.error('Error leyendo usuarios:', error);
-        return [];
-    }
-};
 
 // Middleware de autenticación
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -31,47 +15,49 @@ const authenticateToken = (req, res, next) => {
         });
     }
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({
-                success: false,
-                message: 'Token inválido o expirado'
-            });
-        }
-
-        // Verificar si el usuario aún existe y está activo
-        const users = getUsers();
-        const currentUser = users.find(u => u.id === user.id);
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
         
-        if (!currentUser) {
-            return res.status(403).json({
-                success: false,
-                message: 'Usuario no encontrado'
-            });
-        }
-
-        // Verificar estado activo (compatible con ambos formatos)
-        const isActive = currentUser.active === true || 
-                        currentUser.estado === 'activo' ||
-                        currentUser.active === 'true';
+        // Verificar si el usuario aún existe y está activo en PostgreSQL
+        const result = await pool.query(
+            'SELECT id, username, email, role, full_name, ruta, sucursal, branch_id FROM users WHERE id = $1 AND active = true',
+            [decoded.id]
+        );
         
-        if (!isActive) {
+        if (result.rows.length === 0) {
             return res.status(403).json({
                 success: false,
-                message: 'Usuario inactivo'
+                message: 'Usuario no encontrado o inactivo'
             });
         }
 
+        const user = result.rows[0];
+
+        // Agregar datos del usuario a la request
         req.user = {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role || user.rol, // Compatible con ambos formatos
-            nombre: user.fullName || user.nombre || user.username
+            role: user.role,
+            fullName: user.full_name,
+            ruta: user.ruta,
+            sucursal: user.sucursal,
+            branchId: user.branch_id
         };
         
+        // También crear req.session.userData para compatibilidad con código existente
+        req.session = req.session || {};
+        req.session.userData = req.user;
+        
         next();
-    });
+
+    } catch (err) {
+        console.error('Error verificando token:', err);
+        return res.status(403).json({
+            success: false,
+            message: 'Token inválido o expirado'
+        });
+    }
 };
 
 // Middleware de autorización por roles
@@ -84,10 +70,7 @@ const authorizeRoles = (...roles) => {
             });
         }
 
-        // Compatible con ambos formatos: role y rol
-        const userRole = req.user.role || req.user.rol;
-        
-        if (!roles.includes(userRole)) {
+        if (!roles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: 'No tienes permisos para acceder a este recurso'
@@ -98,13 +81,12 @@ const authorizeRoles = (...roles) => {
     };
 };
 
-// Middleware de validación de propiedad (para que usuarios solo accedan a sus propios recursos)
+// Middleware de validación de propiedad
 const validateOwnership = (req, res, next) => {
-    const { role, rol, id } = req.user;
-    const userRole = role || rol;
+    const { role, id } = req.user;
     
     // Los administradores pueden acceder a todo
-    if (userRole === 'admin') {
+    if (role === 'admin') {
         return next();
     }
     
@@ -126,10 +108,11 @@ const generateToken = (user) => {
     return jwt.sign(
         {
             id: user.id,
-            username: user.username || user.nombre,
+            username: user.username,
             email: user.email,
-            role: user.role || user.rol,
-            fullName: user.fullName || user.nombre
+            role: user.role,
+            ruta: user.ruta,
+            fullName: user.fullName || user.full_name
         },
         JWT_SECRET,
         { expiresIn: '24h' }

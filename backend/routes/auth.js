@@ -1,38 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { generateToken } = require('../middleware/auth');
+const pool = require('../database/connection');
+const { generateToken, authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const usersFilePath = path.join(__dirname, '../data/users.json');
-
-// Función para leer usuarios
-const getUsers = () => {
-    try {
-        if (fs.existsSync(usersFilePath)) {
-            const data = fs.readFileSync(usersFilePath, 'utf8');
-            return JSON.parse(data);
-        }
-        return [];
-    } catch (error) {
-        console.error('Error leyendo usuarios:', error);
-        return [];
-    }
-};
-
-// Función para guardar usuarios
-const saveUsers = (users) => {
-    try {
-        fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-        return true;
-    } catch (error) {
-        console.error('Error guardando usuarios:', error);
-        return false;
-    }
-};
 
 // POST /api/auth/login - Iniciar sesión
 router.post('/login', [
@@ -40,8 +12,9 @@ router.post('/login', [
     body('password').isLength({ min: 1 }).withMessage('Contraseña requerida')
 ], async (req, res) => {
     try {
-        console.log('Datos recibidos:', req.body);
-        // Validar entrada
+        console.log('=== LOGIN ATTEMPT ===');
+        console.log('Email recibido:', req.body.email);
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -52,24 +25,34 @@ router.post('/login', [
         }
 
         const { email, password } = req.body;
-        const users = getUsers();
 
-        // Buscar usuario por email
-        const user = users.find(u => 
-            u.email.toLowerCase() === email.toLowerCase() && 
-            (u.active === true || u.estado === 'activo')
+        // BUSCAR EN POSTGRESQL
+        const result = await pool.query(
+            'SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND active = true',
+            [email]
         );
 
-        if (!user) {
+        if (result.rows.length === 0) {
+            console.log('Usuario no encontrado o inactivo');
             return res.status(401).json({
                 success: false,
                 message: 'Credenciales inválidas'
             });
         }
 
+        const user = result.rows[0];
+        console.log('Usuario encontrado:', {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            ruta: user.ruta
+        });
+
         // Verificar contraseña
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
+            console.log('Contraseña incorrecta');
             return res.status(401).json({
                 success: false,
                 message: 'Credenciales inválidas'
@@ -77,31 +60,43 @@ router.post('/login', [
         }
 
         // Actualizar último login
-        user.lastLogin = new Date().toISOString();
-        saveUsers(users);
+        await pool.query(
+            'UPDATE users SET last_login = NOW() WHERE id = $1',
+            [user.id]
+        );
 
-        // Generar token - compatible con ambas estructuras
+        // Generar token con TODOS los datos necesarios
         const tokenData = {
             id: user.id,
-            username: user.username || user.nombre || user.fullName,
+            username: user.username,
             email: user.email,
-            role: user.role || user.rol
+            role: user.role,
+            ruta: user.ruta,
+            fullName: user.full_name || user.username
         };
 
         const token = generateToken(tokenData);
+
+        const userData = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            ruta: user.ruta,
+            fullName: user.full_name || user.username,
+            sucursal: user.sucursal,
+            branchId: user.branch_id,
+            lastLogin: new Date().toISOString()
+        };
+
+        console.log('Login exitoso. UserData enviado:', userData);
 
         res.json({
             success: true,
             message: 'Inicio de sesión exitoso',
             data: {
                 token,
-                user: {
-                    id: user.id,
-                    username: user.username || user.nombre || user.fullName,
-                    email: user.email,
-                    role: user.role || user.rol,
-                    lastLogin: user.lastLogin
-                }
+                user: userData
             }
         });
 
@@ -116,13 +111,21 @@ router.post('/login', [
 
 // POST /api/auth/register - Registrar nuevo usuario (solo para admin)
 router.post('/register', [
+    authenticateToken,
     body('username').isLength({ min: 3 }).withMessage('Usuario debe tener al menos 3 caracteres'),
     body('email').isEmail().withMessage('Email inválido'),
     body('password').isLength({ min: 6 }).withMessage('Contraseña debe tener al menos 6 caracteres'),
-    body('role').isIn(['admin', 'logistics', 'route', 'local']).withMessage('Rol inválido')
+    body('role').isIn(['admin', 'logistics', 'route', 'local', 'chofer', 'supervisor']).withMessage('Rol válido requerido')
 ], async (req, res) => {
     try {
-        // Validar entrada
+        // Solo admin puede registrar usuarios
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'No tienes permisos para registrar usuarios'
+            });
+        }
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -132,15 +135,15 @@ router.post('/register', [
             });
         }
 
-        const { username, email, password, role, fullName } = req.body;
-        const users = getUsers();
+        const { username, email, password, role, fullName, ruta, sucursal, branchId } = req.body;
 
         // Verificar si ya existe
-        const existingUser = users.find(u => 
-            u.username === username || u.email === email
+        const existingUser = await pool.query(
+            'SELECT id FROM users WHERE username = $1 OR email = $2',
+            [username, email]
         );
 
-        if (existingUser) {
+        if (existingUser.rows.length > 0) {
             return res.status(409).json({
                 success: false,
                 message: 'Usuario o email ya existe'
@@ -151,46 +154,20 @@ router.post('/register', [
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Crear nuevo usuario
-        const newUser = {
-            id: uuidv4(),
-            username,
-            email,
-            password: hashedPassword,
-            role,
-            fullName: fullName || username,
-            active: true,
-            createdAt: new Date().toISOString(),
-            lastLogin: null,
-            metadata: {
-                createdBy: 'system',
-                preferences: {
-                    language: 'es',
-                    timezone: 'America/Monterrey'
-                }
-            }
-        };
-
-        users.push(newUser);
-        
-        if (!saveUsers(users)) {
-            return res.status(500).json({
-                success: false,
-                message: 'Error guardando usuario'
-            });
-        }
+        const result = await pool.query(
+            `INSERT INTO users (
+                username, email, password, role, full_name, 
+                ruta, sucursal, branch_id, active
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+            RETURNING id, username, email, role, full_name, ruta, created_at`,
+            [username, email, hashedPassword, role, fullName || username, ruta || null, sucursal || null, branchId || null]
+        );
 
         res.status(201).json({
             success: true,
             message: 'Usuario registrado exitosamente',
             data: {
-                user: {
-                    id: newUser.id,
-                    username: newUser.username,
-                    email: newUser.email,
-                    role: newUser.role,
-                    fullName: newUser.fullName,
-                    createdAt: newUser.createdAt
-                }
+                user: result.rows[0]
             }
         });
 
@@ -204,17 +181,21 @@ router.post('/register', [
 });
 
 // GET /api/auth/profile - Obtener perfil del usuario autenticado
-router.get('/profile', require('../middleware/auth').authenticateToken, (req, res) => {
+router.get('/profile', authenticateToken, async (req, res) => {
     try {
-        const users = getUsers();
-        const user = users.find(u => u.id === req.user.id);
+        const result = await pool.query(
+            'SELECT id, username, email, role, full_name, ruta, sucursal, branch_id, last_login, created_at FROM users WHERE id = $1',
+            [req.user.id]
+        );
 
-        if (!user) {
+        if (result.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
             });
         }
+
+        const user = result.rows[0];
 
         res.json({
             success: true,
@@ -224,10 +205,12 @@ router.get('/profile', require('../middleware/auth').authenticateToken, (req, re
                     username: user.username,
                     email: user.email,
                     role: user.role,
-                    fullName: user.fullName,
-                    lastLogin: user.lastLogin,
-                    createdAt: user.createdAt,
-                    metadata: user.metadata
+                    fullName: user.full_name,
+                    ruta: user.ruta,
+                    sucursal: user.sucursal,
+                    branchId: user.branch_id,
+                    lastLogin: user.last_login,
+                    createdAt: user.created_at
                 }
             }
         });
@@ -243,10 +226,10 @@ router.get('/profile', require('../middleware/auth').authenticateToken, (req, re
 
 // PUT /api/auth/profile - Actualizar perfil
 router.put('/profile', [
-    require('../middleware/auth').authenticateToken,
+    authenticateToken,
     body('email').optional().isEmail().withMessage('Email inválido'),
     body('fullName').optional().isLength({ min: 2 }).withMessage('Nombre completo debe tener al menos 2 caracteres')
-], (req, res) => {
+], async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -258,20 +241,15 @@ router.put('/profile', [
         }
 
         const { email, fullName } = req.body;
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.id === req.user.id);
-
-        if (userIndex === -1) {
-            return res.status(404).json({
-                success: false,
-                message: 'Usuario no encontrado'
-            });
-        }
 
         // Verificar si el nuevo email ya existe
-        if (email && email !== users[userIndex].email) {
-            const emailExists = users.some(u => u.email === email && u.id !== req.user.id);
-            if (emailExists) {
+        if (email) {
+            const emailExists = await pool.query(
+                'SELECT id FROM users WHERE email = $1 AND id != $2',
+                [email, req.user.id]
+            );
+
+            if (emailExists.rows.length > 0) {
                 return res.status(409).json({
                     success: false,
                     message: 'El email ya está en uso'
@@ -280,28 +258,42 @@ router.put('/profile', [
         }
 
         // Actualizar datos
-        if (email) users[userIndex].email = email;
-        if (fullName) users[userIndex].fullName = fullName;
-        users[userIndex].updatedAt = new Date().toISOString();
+        const updates = [];
+        const values = [];
+        let paramCount = 1;
 
-        if (!saveUsers(users)) {
-            return res.status(500).json({
+        if (email) {
+            updates.push(`email = $${paramCount}`);
+            values.push(email);
+            paramCount++;
+        }
+
+        if (fullName) {
+            updates.push(`full_name = $${paramCount}`);
+            values.push(fullName);
+            paramCount++;
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error guardando cambios'
+                message: 'No hay campos para actualizar'
             });
         }
+
+        values.push(req.user.id);
+
+        const result = await pool.query(
+            `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramCount} 
+             RETURNING id, username, email, role, full_name, ruta`,
+            values
+        );
 
         res.json({
             success: true,
             message: 'Perfil actualizado exitosamente',
             data: {
-                user: {
-                    id: users[userIndex].id,
-                    username: users[userIndex].username,
-                    email: users[userIndex].email,
-                    role: users[userIndex].role,
-                    fullName: users[userIndex].fullName
-                }
+                user: result.rows[0]
             }
         });
 
@@ -316,7 +308,7 @@ router.put('/profile', [
 
 // POST /api/auth/change-password - Cambiar contraseña
 router.post('/change-password', [
-    require('../middleware/auth').authenticateToken,
+    authenticateToken,
     body('currentPassword').notEmpty().withMessage('Contraseña actual requerida'),
     body('newPassword').isLength({ min: 6 }).withMessage('Nueva contraseña debe tener al menos 6 caracteres')
 ], async (req, res) => {
@@ -331,10 +323,13 @@ router.post('/change-password', [
         }
 
         const { currentPassword, newPassword } = req.body;
-        const users = getUsers();
-        const userIndex = users.findIndex(u => u.id === req.user.id);
 
-        if (userIndex === -1) {
+        const result = await pool.query(
+            'SELECT password FROM users WHERE id = $1',
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
@@ -342,7 +337,7 @@ router.post('/change-password', [
         }
 
         // Verificar contraseña actual
-        const isValidPassword = await bcrypt.compare(currentPassword, users[userIndex].password);
+        const isValidPassword = await bcrypt.compare(currentPassword, result.rows[0].password);
         if (!isValidPassword) {
             return res.status(401).json({
                 success: false,
@@ -352,15 +347,11 @@ router.post('/change-password', [
 
         // Hash de la nueva contraseña
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-        users[userIndex].password = hashedNewPassword;
-        users[userIndex].updatedAt = new Date().toISOString();
 
-        if (!saveUsers(users)) {
-            return res.status(500).json({
-                success: false,
-                message: 'Error guardando nueva contraseña'
-            });
-        }
+        await pool.query(
+            'UPDATE users SET password = $1 WHERE id = $2',
+            [hashedNewPassword, req.user.id]
+        );
 
         res.json({
             success: true,
@@ -377,7 +368,7 @@ router.post('/change-password', [
 });
 
 // POST /api/auth/logout - Cerrar sesión
-router.post('/logout', require('../middleware/auth').authenticateToken, (req, res) => {
+router.post('/logout', authenticateToken, (req, res) => {
     res.json({
         success: true,
         message: 'Sesión cerrada exitosamente'
