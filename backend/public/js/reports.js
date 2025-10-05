@@ -425,28 +425,28 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
         
         // Convertir fechas ISO a hora local
         let tiempoSalida = '-';
-        if (pkg.tiempoSalidaReparto) {
-            const fecha = safeParseDate(pkg.tiempoSalidaReparto);
-            if (!isNaN(fecha.getTime())) {
-                tiempoSalida = fecha.toLocaleTimeString('es-MX', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: false 
-                });
-            }
-        }
-        
-        let tiempoEntrega = '-';
-        if (pkg.tiempoEntrega) {
-            const fecha = safeParseDate(pkg.tiempoEntrega);
-            if (!isNaN(fecha.getTime())) {
-                tiempoEntrega = fecha.toLocaleTimeString('es-MX', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: false 
-                });
-            }
-        }
+if (pkg.tiempoSalidaReparto && pkg.tiempoSalidaReparto !== '-') {
+    const fecha = safeParseDate(pkg.tiempoSalidaReparto);
+    if (fecha && !isNaN(fecha.getTime())) {  // ← Agregar verificación de null
+        tiempoSalida = fecha.toLocaleTimeString('es-MX', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
+    }
+}
+
+let tiempoEntrega = '-';
+if (pkg.tiempoEntrega && pkg.tiempoEntrega !== '-') {
+    const fecha = safeParseDate(pkg.tiempoEntrega);
+    if (fecha && !isNaN(fecha.getTime())) {  // ← Agregar verificación de null
+        tiempoEntrega = fecha.toLocaleTimeString('es-MX', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
+    }
+}
         
         // Usar diferenciaMinutos del backend (ya calculado correctamente)
         const totalTiempo = pkg.diferenciaMinutos || 0;
