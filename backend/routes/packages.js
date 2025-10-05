@@ -268,6 +268,26 @@ router.put('/:id', async (req, res) => {
         const updates = req.body;
         const userRole = req.user.role;
         
+        // Convertir camelCase a snake_case
+        const fieldMapping = {
+            'tiempoSalidaReparto': 'tiempo_salida_reparto',
+            'tiempoEntrega': 'tiempo_entrega',
+            'pesoSalida': 'peso_salida',
+            'pesoEntrega': 'peso_entrega',
+            'fotoSalida': 'foto_salida',
+            'fotoEntrega': 'foto_entrega',
+            'nombreQuienRecibio': 'nombre_quien_recibio',
+            'cargoQuienRecibio': 'cargo_quien_recibio',
+            'firmaDigital': 'firma_digital'
+        };
+        
+        Object.keys(fieldMapping).forEach(camelKey => {
+            if (updates[camelKey] !== undefined) {
+                updates[fieldMapping[camelKey]] = updates[camelKey];
+                delete updates[camelKey];
+            }
+        });
+        
         // Control de permisos
         if (userRole === 'chofer') {
             const allowedFields = ['status', 'tiempo_salida_reparto', 'tiempo_entrega', 
