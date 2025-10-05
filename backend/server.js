@@ -1,4 +1,5 @@
 const express = require('express');
+process.env.TZ = 'America/Monterrey';
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
