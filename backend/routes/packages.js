@@ -288,6 +288,15 @@ router.put('/:id', async (req, res) => {
             }
         });
         
+        // NUEVO: Agregar timestamps automáticamente según el status
+        if (updates.status === 'in_transit' && !updates.tiempo_salida_reparto) {
+            updates.tiempo_salida_reparto = new Date().toISOString();
+        }
+        
+        if (updates.status === 'delivered' && !updates.tiempo_entrega) {
+            updates.tiempo_entrega = new Date().toISOString();
+        }
+        
         // Control de permisos
         if (userRole === 'chofer') {
             const allowedFields = ['status', 'tiempo_salida_reparto', 'tiempo_entrega', 
