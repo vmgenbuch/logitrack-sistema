@@ -123,7 +123,7 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         const result = await pool.query(
     `SELECT * FROM packages 
      WHERE ruta = $1 
-     AND DATE(fecha_creacion AT TIME ZONE 'UTC' AT TIME ZONE 'America/Monterrey') = CURRENT_DATE
+     AND fecha_creacion::date = CURRENT_DATE
      AND status NOT IN ('delivered', 'cancelled')
      ORDER BY 
         CASE prioridad 
@@ -134,16 +134,15 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         fecha_creacion ASC`,
     [driverRoute]
 );
-        
-        res.json({
-            success: true,
-            data: {
-                packages: result.rows,
-                route: driverRoute,
-                date: today,
-                total: result.rows.length
-            }
-        });
+
+res.json({
+    success: true,
+    data: {
+        packages: result.rows,
+        route: driverRoute,
+        total: result.rows.length
+    }
+});
         
     } catch (error) {
         console.error('Error obteniendo paquetes del chofer:', error);
