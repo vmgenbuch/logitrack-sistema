@@ -120,19 +120,19 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         const today = new Date().toISOString().split('T')[0];
         
         const result = await pool.query(
-            `SELECT * FROM packages 
-             WHERE ruta = $1 
-             AND DATE(fecha_creacion) = $2
-             AND status NOT IN ('delivered', 'cancelled')
-             ORDER BY 
-                CASE prioridad 
-                    WHEN 'urgente' THEN 0
-                    WHEN 'alta' THEN 1
-                    ELSE 2
-                END,
-                fecha_creacion ASC`,
-            [driverRoute, today]
-        );
+    `SELECT * FROM packages 
+     WHERE ruta = $1 
+     AND DATE(fecha_creacion AT TIME ZONE 'UTC' AT TIME ZONE 'America/Monterrey') = CURRENT_DATE
+     AND status NOT IN ('delivered', 'cancelled')
+     ORDER BY 
+        CASE prioridad 
+            WHEN 'urgente' THEN 0
+            WHEN 'alta' THEN 1
+            ELSE 2
+        END,
+        fecha_creacion ASC`,
+    [driverRoute]
+);
         
         res.json({
             success: true,
