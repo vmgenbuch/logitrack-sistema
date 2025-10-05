@@ -119,7 +119,8 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         // ELIMINAR las líneas 116-117 completamente
         
         const result = await pool.query(
-            `SELECT * FROM packages 
+            `SET timezone = 'America/Monterrey';
+             SELECT * FROM packages  
              WHERE ruta = $1 
              AND fecha_creacion::date = CURRENT_DATE
              AND status NOT IN ('delivered', 'cancelled')
