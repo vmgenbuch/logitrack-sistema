@@ -165,27 +165,44 @@ router.get('/detailed-tracking', async (req, res) => {
 
         const result = await pool.query(query, params);
 
-        const detailedReport = result.rows.map(pkg => ({
-            id: pkg.id,
-            trackingNumber: pkg.tracking_number,
-            cliente: pkg.cliente,
-            ruta: pkg.route_name || 'N/A',
-            tiempoSalidaReparto: pkg.tiempo_salida_reparto || '-',
-            tiempoEntrega: pkg.tiempo_entrega || '-',
-            diferenciaMinutos: pkg.diferencia_minutos || 0,
-            pesoSalida: pkg.peso_salida || 0,
-            pesoEntrega: pkg.peso_entrega || 0,
-            diferenciaPeso: pkg.diferencia_peso || 0,
-            efectividad: pkg.efectividad || 0
-        }));
+        const detailedReport = result.rows.map(pkg => {
+    const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
+    const pesoFinal = pkg.peso_entrega || 0;
+    const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
+    
+    // Calcular tiempo total
+    let totalMinutos = 0;
+    if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
+        const salida = new Date(pkg.tiempo_salida_reparto);
+        const entrega = new Date(pkg.tiempo_entrega);
+        totalMinutos = Math.round((entrega - salida) / 60000);
+    }
+    
+    return {
+        id: pkg.id,
+        trackingNumber: pkg.tracking_number,
+        cliente: pkg.cliente,
+        ruta: pkg.route_name || 'N/A',
+        tiempoSalidaReparto: pkg.tiempo_salida_reparto ? 
+            new Date(pkg.tiempo_salida_reparto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '-',
+        tiempoEntrega: pkg.tiempo_entrega ? 
+            new Date(pkg.tiempo_entrega).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '-',
+        totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
+        diferenciaMinutos: totalMinutos,
+        pesoSalida: pesoInicial,
+        pesoEntrega: pesoFinal,
+        diferenciaPeso: diferenciaPeso,
+        efectividad: pkg.efectividad || 0
+    };
+});
 
-        res.json({
-            success: true,
-            data: {
-                filters: { fechaInicio, fechaFin, ruta, estado },
-                records: detailedReport
-            }
-        });
+res.json({
+    success: true,
+    data: {
+        filters: { fechaInicio, fechaFin, ruta, estado },
+        records: detailedReport
+    }
+});
 
     } catch (error) {
         console.error('Error generando reporte detallado:', error);
