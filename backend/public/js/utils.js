@@ -1,5 +1,3 @@
-cat > backend/public/js/utils.js << 'EOF'
-// Utilidades compartidas
 function safeFormatDate(dateString, options = {}) {
     if (!dateString) return '-';
     try {
