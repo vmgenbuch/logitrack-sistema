@@ -117,20 +117,20 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         }
         
         // ELIMINAR las líneas 116-117 completamente
-        
+        await pool.query("SET timezone = 'America/Monterrey'");
+
         const result = await pool.query(
-            `SET timezone = 'America/Monterrey';
-             SELECT * FROM packages  
-             WHERE ruta = $1 
-             AND fecha_creacion::date = CURRENT_DATE
-             AND status NOT IN ('delivered', 'cancelled')
-             ORDER BY 
-                CASE prioridad 
-                    WHEN 'urgente' THEN 0
-                    WHEN 'alta' THEN 1
-                    ELSE 2
-                END,
-                fecha_creacion ASC`,
+          `SELECT * FROM packages 
+           WHERE ruta = $1 
+           AND fecha_creacion::date = CURRENT_DATE
+           AND status NOT IN ('delivered', 'cancelled')
+           ORDER BY 
+             CASE prioridad 
+             WHEN 'urgente' THEN 0
+             WHEN 'alta' THEN 1
+              ELSE 2
+             END,
+              fecha_creacion ASC`,
             [driverRoute]
         );
 
