@@ -355,8 +355,9 @@ async function cargarSeguimiento() {
         const datos = await response.json();
         console.log('Datos recibidos del backend:', datos);
         
-        const mappedRecords = (datos.data?.records || []).map(mapPackageFromAPI);
-        actualizarTablaSeguimiento(mappedRecords);
+        actualizarTablaSeguimiento(datos.data?.records || []);
+        /*const mappedRecords = (datos.data?.records || []).map(mapPackageFromAPI);
+        actualizarTablaSeguimiento(mappedRecords);*/
         
     } catch (error) {
         console.error('Error cargando seguimiento:', error);

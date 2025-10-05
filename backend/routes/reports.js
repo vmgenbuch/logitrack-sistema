@@ -166,6 +166,7 @@ router.get('/detailed-tracking', async (req, res) => {
         const result = await pool.query(query, params);
 
         const detailedReport = result.rows.map(pkg => ({
+            id: pkg.id,
             trackingNumber: pkg.tracking_number,
             cliente: pkg.cliente,
             ruta: pkg.route_name || 'N/A',
