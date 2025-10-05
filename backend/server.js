@@ -1,5 +1,10 @@
 const express = require('express');
 process.env.TZ = 'America/Monterrey';
+// Logs de validación
+console.log('🌎 Zona horaria configurada:', process.env.TZ);
+console.log('📅 Fecha/hora del servidor:', new Date().toString());
+console.log('📅 Fecha ISO:', new Date().toISOString());
+console.log('📅 Fecha local:', new Date().toLocaleString('es-MX', { timeZone: 'America/Monterrey' }));
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
