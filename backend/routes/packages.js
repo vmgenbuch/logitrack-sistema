@@ -91,7 +91,6 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
     try {
         const userId = req.user.id;
         
-        // Buscar el chofer
         const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
         
         if (userResult.rows.length === 0) {
@@ -117,32 +116,31 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
             });
         }
         
-        const today = new Date().toISOString().split('T')[0];
-        console.log('🔍 Filtro fecha para conductor:', today, '| Ruta:', driverRoute);
+        // ELIMINAR las líneas 116-117 completamente
         
         const result = await pool.query(
-    `SELECT * FROM packages 
-     WHERE ruta = $1 
-     AND fecha_creacion::date = CURRENT_DATE
-     AND status NOT IN ('delivered', 'cancelled')
-     ORDER BY 
-        CASE prioridad 
-            WHEN 'urgente' THEN 0
-            WHEN 'alta' THEN 1
-            ELSE 2
-        END,
-        fecha_creacion ASC`,
-    [driverRoute]
-);
+            `SELECT * FROM packages 
+             WHERE ruta = $1 
+             AND fecha_creacion::date = CURRENT_DATE
+             AND status NOT IN ('delivered', 'cancelled')
+             ORDER BY 
+                CASE prioridad 
+                    WHEN 'urgente' THEN 0
+                    WHEN 'alta' THEN 1
+                    ELSE 2
+                END,
+                fecha_creacion ASC`,
+            [driverRoute]
+        );
 
-res.json({
-    success: true,
-    data: {
-        packages: result.rows,
-        route: driverRoute,
-        total: result.rows.length
-    }
-});
+        res.json({
+            success: true,
+            data: {
+                packages: result.rows,
+                route: driverRoute,
+                total: result.rows.length
+            }
+        });
         
     } catch (error) {
         console.error('Error obteniendo paquetes del chofer:', error);
