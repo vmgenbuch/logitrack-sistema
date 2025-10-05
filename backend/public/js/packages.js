@@ -253,6 +253,60 @@ async function loadPackages() {
         const data = await response.json();
         
         if (data.success) {
+            // Mapear snake_case a camelCase
+            packages = (data.data.packages || []).map(pkg => ({
+                id: pkg.id,
+                trackingNumber: pkg.tracking_number,
+                cliente: pkg.cliente,
+                telefono: pkg.telefono,
+                direccion: pkg.direccion,
+                sucursalDestino: pkg.sucursal_destino,
+                ruta: pkg.ruta,
+                prioridad: pkg.prioridad,
+                pesoEstimado: pkg.peso_estimado,
+                pesoSalida: pkg.peso_salida,
+                pesoEntrega: pkg.peso_entrega,
+                descripcion: pkg.descripcion,
+                status: pkg.status,
+                fechaCreacion: pkg.fecha_creacion,
+                tiempoSalidaReparto: pkg.tiempo_salida_reparto,
+                tiempoEntrega: pkg.tiempo_entrega,
+                incidencia: pkg.incidencia,
+                nombreQuienRecibio: pkg.nombre_quien_recibio,
+                cargoQuienRecibio: pkg.cargo_quien_recibio,
+                fotoSalida: pkg.foto_salida,
+                fotoEntrega: pkg.foto_entrega,
+                firmaDigital: pkg.firma_digital,
+                validacionReceptor: pkg.validacion_receptor
+            }));
+            
+            updateStatistics();
+            applyFilters();
+            clearError();
+        } else {
+            throw new Error(data.message || 'Error cargando paquetes');
+        }
+    } catch (error) {
+        console.error('Error cargando paquetes:', error);
+        showError(`Error cargando paquetes: ${error.message}`);
+        displayPackages([]);
+    }
+}
+
+
+/*async function loadPackages() {
+    const token = localStorage.getItem('token');
+    
+    try {
+        showLoading();
+        
+        const response = await fetch(`${API_BASE}/packages`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
             packages = data.data.packages || [];
             updateStatistics();
             applyFilters(); // Aplicar filtros automáticamente
@@ -265,7 +319,7 @@ async function loadPackages() {
         showError(`Error cargando paquetes: ${error.message}`);
         displayPackages([]);
     }
-}
+}*/
 
 // Actualizar estadísticas
 function updateStatistics() {
@@ -473,388 +527,7 @@ function getPriorityText(priority) {
     return priorityMap[priority] || priority;
 }
 
-/*const API_BASE = 'http://localhost:3000/api';
-let packages = [];
-let routes = [];
-let branches = [];
-let currentPackage = null;
 
-// Inicializar cuando carga la página
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuthentication();
-    loadData();
-    setupEventListeners();
-});
-
-// Verificar autenticación
-function checkAuthentication() {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('userData') || '{}');
-    
-    if (!token || !user.role) {
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    // Verificar que tenga permisos (admin o logistics)
-    if (!['admin', 'logistics'].includes(user.role)) {
-        alert('No tienes permisos para acceder a esta sección.');
-        window.location.href = 'dashboard-admin.html';
-        return;
-    }
-    
-    document.getElementById('userName').textContent = user.fullName || user.username;
-    
-    // Generar menú según rol
-    generateRoleBasedMenu();
-}
-
-// Función para generar menú según rol
-function generateRoleBasedMenu() {
-    const user = JSON.parse(localStorage.getItem('userData') || '{}');
-    const navigationMenu = document.querySelector('.nav-links');
-    
-    if (!navigationMenu) return;
-    
-    let menuItems = [];
-    
-    switch(user.role) {
-        case 'admin':
-            menuItems = [
-                { href: 'dashboard-admin.html', text: 'Dashboard' },
-                { href: 'packages.html', text: 'Paquetes', active: true },
-                { href: 'routes.html', text: 'Rutas' },
-                { href: 'branches.html', text: 'Sucursales' },
-                { href: 'users.html', text: 'Usuarios' },
-                { href: 'reports.html', text: 'Reportes' }
-            ];
-            break;
-            
-        case 'logistics':
-            menuItems = [
-                { href: 'packages.html', text: 'Paquetes', active: true },
-                { href: 'routes.html', text: 'Rutas' },
-                { href: 'reports.html', text: 'Reportes' }
-            ];
-            break;
-            
-        case 'route':
-            menuItems = [
-                { href: 'packages.html', text: 'Mis Entregas', active: true },
-                { href: 'routes.html', text: 'Mi Ruta' }
-            ];
-            break;
-            
-        case 'supervisor':
-            menuItems = [
-                { href: 'packages.html', text: 'Paquetes', active: true },
-                { href: 'routes.html', text: 'Rutas' },
-                { href: 'reports.html', text: 'Reportes' },
-                { href: 'users.html', text: 'Usuarios' }
-            ];
-            break;
-            
-        default:
-            menuItems = [
-                { href: 'packages.html', text: 'Paquetes', active: true }
-            ];
-    }
-    
-    navigationMenu.innerHTML = menuItems.map(item => 
-        `<a href="${item.href}" class="nav-link ${item.active ? 'active' : ''}">${item.text}</a>`
-    ).join('');
-}
-
-// Configurar event listeners
-function setupEventListeners() {
-    // Botones principales
-    document.getElementById('logoutBtn').addEventListener('click', logout);
-    document.getElementById('newPackageBtn').addEventListener('click', openNewPackageModal);
-    document.getElementById('refreshBtn').addEventListener('click', loadPackages);
-    document.getElementById('printSelectedBtn').addEventListener('click', printSelectedPackages);
-    
-    // Modal
-    document.getElementById('closeModal').addEventListener('click', closeModal);
-    document.getElementById('cancelBtn').addEventListener('click', closeModal);
-    document.getElementById('packageForm').addEventListener('submit', handlePackageSubmit);
-    
-    // Filtros
-    document.getElementById('searchInput').addEventListener('input', debounce(applyFilters, 300));
-    document.getElementById('statusFilter').addEventListener('change', applyFilters);
-    document.getElementById('routeFilter').addEventListener('change', applyFilters);
-    
-    // Event listener para cambio de sucursal (solo si el elemento existe)
-    const sucursalSelect = document.getElementById('sucursalDestino');
-    if (sucursalSelect) {
-        sucursalSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const direccionInput = document.getElementById('direccion');
-            const clienteInput = document.getElementById('cliente');
-            
-            if (selectedOption.value && direccionInput && clienteInput) {
-                // Auto-llenar la dirección y el cliente con los datos de la sucursal
-                direccionInput.value = selectedOption.dataset.address || '';
-                clienteInput.value = selectedOption.dataset.nombre || '';
-            }
-        });
-    }
-    
-    // Cerrar modal al hacer click fuera
-    document.getElementById('packageModal').addEventListener('click', (e) => {
-        if (e.target.id === 'packageModal') {
-            closeModal();
-        }
-    });
-}
-
-// Cargar datos iniciales
-async function loadData() {
-    await Promise.all([
-        loadRoutes(),
-        loadBranches(),
-        loadPackages()
-    ]);
-}
-
-// Cargar rutas
-async function loadRoutes() {
-    const token = localStorage.getItem('token');
-    
-    try {
-        const response = await fetch(`${API_BASE}/routes-management`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            routes = data.data;
-            populateRouteSelectors();
-        }
-        
-    } catch (error) {
-        console.error('Error cargando rutas:', error);
-        showError('Error cargando rutas');
-    }
-}
-
-async function loadBranches() {
-    try {
-        const response = await fetch(`${API_BASE}/public/branches`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            branches = data.success ? data.data.branches : [];
-            console.log('Sucursales cargadas:', branches.length);
-        } else {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-    } catch (error) {
-        console.error('Error cargando sucursales:', error);
-        branches = [];
-    }
-}
-
-// Poblar selectores de rutas
-function populateRouteSelectors() {
-    const routeFilter = document.getElementById('routeFilter');
-    const routeForm = document.getElementById('ruta');
-    
-    // Limpiar opciones existentes (excepto la primera)
-    routeFilter.innerHTML = '<option value="">Todas las rutas</option>';
-    routeForm.innerHTML = '<option value="">Seleccionar ruta</option>';
-    
-    routes.forEach(route => {
-        if (route.status === 'active') {
-            const filterOption = document.createElement('option');
-            filterOption.value = route.id;
-            filterOption.textContent = route.nombre;
-            routeFilter.appendChild(filterOption);
-            
-            const formOption = document.createElement('option');
-            formOption.value = route.id;
-            formOption.textContent = `${route.nombre} (${route.capacidadMaxima} paq.)`;
-            routeForm.appendChild(formOption);
-        }
-    });
-}
-
-// Poblar selector de sucursales
-function populateBranchSelector() {
-    const selectSucursal = document.getElementById('sucursalDestino');
-    
-    if (!selectSucursal) return;
-    
-    // Limpiar opciones existentes
-    selectSucursal.innerHTML = '<option value="">Seleccionar sucursal</option>';
-    
-    // Verificar que branches sea un array válido
-    if (!Array.isArray(branches) || branches.length === 0) {
-        console.log('No hay sucursales disponibles');
-        return;
-    }
-    
-    // Agregar sucursales
-    branches.forEach(sucursal => {
-        const option = document.createElement('option');
-        option.value = sucursal.id;
-        option.textContent = `${sucursal.nombre} - ${sucursal.direccion.ciudad}`;
-        // Crear dirección completa
-        const direccionCompleta = `${sucursal.direccion.calle}, ${sucursal.direccion.colonia}, ${sucursal.direccion.ciudad}, ${sucursal.direccion.estado} ${sucursal.direccion.codigoPostal}`;
-        option.dataset.address = direccionCompleta;
-        option.dataset.nombre = sucursal.nombre;
-        selectSucursal.appendChild(option);
-    });
-}
-
-// Cargar paquetes
-// ===== GESTIÓN DE PAQUETES =====
-async function loadPackages() {
-    const token = localStorage.getItem('token');
-    
-    try {
-        showLoading();
-        
-        const response = await fetch(`${API_BASE}/packages`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        const data = await response.json();
-        
-        console.log('📦 Respuesta completa del servidor:', data);
-        console.log('📦 data.success:', data.success);
-        console.log('📦 data.data:', data.data);
-        console.log('📦 data.data.packages:', data.data?.packages);
-        
-        if (data.success) {
-            packages = data.data.packages || [];
-            console.log('Paquetes cargados:', packages.length);
-            updateStatistics();
-            displayPackages(packages);
-            clearError();
-        } else {
-            throw new Error(data.message || 'Error cargando paquetes');
-        }
-        
-    } catch (error) {
-        console.error('Error cargando paquetes:', error);
-        showError(`Error cargando paquetes: ${error.message}`);
-        displayPackages([]);
-    }
-}
-
-// Actualizar estadísticas
-function updateStatistics() {
-    const total = packages.length;
-    const pending = packages.filter(p => p.status === 'pending').length;
-    const transit = packages.filter(p => p.status === 'in transit').length;
-    const delivered = packages.filter(p => p.status === 'delivered').length;
-    
-    document.getElementById('totalPackages').textContent = total;
-    document.getElementById('pendingPackages').textContent = pending;
-    document.getElementById('transitPackages').textContent = transit;
-    document.getElementById('deliveredPackages').textContent = delivered;
-}
-
-// Mostrar paquetes en tabla
-function displayPackages(packagesToShow) {
-    const container = document.getElementById('packagesContainer');
-    
-    // ✅ AGREGAR ESTA VALIDACIÓN
-    if (!packagesToShow || !Array.isArray(packagesToShow)) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📦</div>
-                <h3>No hay paquetes</h3>
-                <p>Crea tu primer paquete haciendo click en "Nuevo Paquete"</p>
-            </div>
-        `;
-        return;
-    }
-    
-    if (packagesToShow.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📦</div>
-                <h3>No hay paquetes</h3>
-                <p>Crea tu primer paquete haciendo click en "Nuevo Paquete"</p>
-            </div>
-        `;
-        return;
-    }
-    
-    const tableHTML = `
-        <table class="packages-table">
-            <thead>
-                <tr>
-                    <th>
-                        <input type="checkbox" id="selectAll">
-                    </th>
-                    <th>Tracking</th>
-                    <th>Cliente</th>
-                    <th>Dirección</th>
-                    <th>Ruta</th>
-                    <th>Estado</th>
-                    <th>Prioridad</th>
-                    <th>Peso (kg)</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${packagesToShow.map(pkg => createPackageRow(pkg)).join('')}
-            </tbody>
-        </table>
-    `;
-    
-    container.innerHTML = tableHTML;
-    
-    // Agregar event listeners después de crear la tabla
-    setupTableEventListeners();
-}
-
-// Configurar event listeners de la tabla
-function setupTableEventListeners() {
-    // Event listener para select all
-    const selectAllCheckbox = document.getElementById('selectAll');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', toggleSelectAll);
-    }
-    
-    // Event listeners para botones de acciones
-    document.querySelectorAll('button[data-action]').forEach(button => {
-        button.addEventListener('click', function() {
-            const action = this.dataset.action;
-            const id = this.dataset.id;
-            
-            switch(action) {
-                case 'view':
-                    viewPackage(id);
-                    break;
-                case 'edit':
-                    editPackage(id);
-                    break;
-                case 'print':
-                    const pkg = packages.find(p => p.id === id);
-                    if (pkg && typeof generateMasterLabel === 'function') {
-                        generateMasterLabel(pkg);
-                    }
-                    break;
-                case 'print-zpl':  // NUEVO
-                        imprimirEtiquetaZebra(id);
-                    break;
-                case 'cancel':
-                    cancelPackage(id);
-                    break;
-            }
-        });
-    });
-}*/
 
 // Crear fila de paquete
 function createPackageRow(pkg) {
