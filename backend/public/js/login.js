@@ -37,7 +37,7 @@ function showAlert(message, type = 'error') {
 // Manejar formulario de login
 document.addEventListener('DOMContentLoaded', () => {
     // Auto-llenar credenciales de demo
-    document.getElementById('username').value = 'admin@logistics.com';
+    document.getElementById('username').value = 'admin@molecula83.com.mx';
     document.getElementById('password').value = 'admin123';
     
     // Verificar servidor cada 30 segundos
