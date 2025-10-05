@@ -118,6 +118,7 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
         }
         
         const today = new Date().toISOString().split('T')[0];
+        console.log('🔍 Filtro fecha para conductor:', today, '| Ruta:', driverRoute);
         
         const result = await pool.query(
     `SELECT * FROM packages 
