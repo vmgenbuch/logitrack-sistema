@@ -294,32 +294,7 @@ async function loadPackages() {
 }
 
 
-/*async function loadPackages() {
-    const token = localStorage.getItem('token');
-    
-    try {
-        showLoading();
-        
-        const response = await fetch(`${API_BASE}/packages`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            packages = data.data.packages || [];
-            updateStatistics();
-            applyFilters(); // Aplicar filtros automáticamente
-            clearError();
-        } else {
-            throw new Error(data.message || 'Error cargando paquetes');
-        }
-    } catch (error) {
-        console.error('Error cargando paquetes:', error);
-        showError(`Error cargando paquetes: ${error.message}`);
-        displayPackages([]);
-    }
-}*/
+
 
 // Actualizar estadísticas
 function updateStatistics() {
