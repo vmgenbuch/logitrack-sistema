@@ -424,32 +424,12 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
         }
         
         // Convertir fechas ISO a hora local
-        let tiempoSalida = '-';
-if (pkg.tiempoSalidaReparto && pkg.tiempoSalidaReparto !== '-') {
-    const fecha = safeParseDate(pkg.tiempoSalidaReparto);
-    if (fecha && !isNaN(fecha.getTime())) {  // ← Agregar verificación de null
-        tiempoSalida = fecha.toLocaleTimeString('es-MX', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-        });
-    }
-}
-
-let tiempoEntrega = '-';
-if (pkg.tiempoEntrega && pkg.tiempoEntrega !== '-') {
-    const fecha = safeParseDate(pkg.tiempoEntrega);
-    if (fecha && !isNaN(fecha.getTime())) {  // ← Agregar verificación de null
-        tiempoEntrega = fecha.toLocaleTimeString('es-MX', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-        });
-    }
-}
+        let tiempoSalida = pkg.tiempoSalidaReparto || '-';
+        let tiempoEntrega = pkg.tiempoEntrega || '-';
         
         // Usar diferenciaMinutos del backend (ya calculado correctamente)
         const totalTiempo = pkg.diferenciaMinutos || 0;
+        
 
         const fila = document.createElement('tr');
         fila.innerHTML = `
