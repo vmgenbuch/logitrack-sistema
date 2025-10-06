@@ -184,19 +184,28 @@ router.get('/detailed-tracking', async (req, res) => {
                 cliente: pkg.cliente,
                 ruta: pkg.route_name || 'N/A',
                 tiempoSalidaReparto: pkg.tiempo_salida_reparto ? 
-                    new Date(pkg.tiempo_salida_reparto).toLocaleTimeString('es-MX', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        timeZone: 'America/Monterrey',
-                        hour12: true 
-                    }) : '-',
-                tiempoEntrega: pkg.tiempo_entrega ? 
-                    new Date(pkg.tiempo_entrega).toLocaleTimeString('es-MX', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        timeZone: 'America/Monterrey',
-                        hour12: true 
-                    }) : '-',
+    (() => {
+        // Forzar interpretación UTC y convertir a Monterrey
+        const timestamp = pkg.tiempo_salida_reparto.replace(' ', 'T') + 'Z';
+        const utcDate = new Date(timestamp);
+        return utcDate.toLocaleTimeString('es-MX', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Monterrey',
+            hour12: true 
+        });
+    })() : '-',
+tiempoEntrega: pkg.tiempo_entrega ? 
+    (() => {
+        const timestamp = pkg.tiempo_entrega.replace(' ', 'T') + 'Z';
+        const utcDate = new Date(timestamp);
+        return utcDate.toLocaleTimeString('es-MX', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Monterrey',
+            hour12: true 
+        });
+    })() : '-',
                 totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
                 diferenciaMinutos: totalMinutos,
                 pesoSalida: pesoInicial,
