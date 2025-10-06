@@ -12,12 +12,13 @@ router.use(authorizeRoles('admin', 'logistics'));
 // GET /api/reports/dashboard - Dashboard principal de reportes
 router.get('/dashboard', async (req, res) => {
     try {
-        // Usar fecha local del servidor sin moment
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
+        
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
+        
+        // Obtener fecha actual de PostgreSQL en zona Monterrey
+        const dateResult = await pool.query("SELECT CURRENT_DATE::text as today");
+        const today = dateResult.rows[0].today;
         
         console.log('=== DEBUG DASHBOARD ===');
         console.log('Fecha servidor:', today);

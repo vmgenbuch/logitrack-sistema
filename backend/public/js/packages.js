@@ -329,7 +329,8 @@ function applyFilters() {
         
         let matchesDate = true;
         if (fechaDesde || fechaHasta) {
-            const pkgDate = pkg.fechaCreacion ? new Date(pkg.fechaCreacion).toISOString().split('T')[0] : '';
+            // Extraer solo la fecha sin conversión UTC
+            const pkgDate = pkg.fechaCreacion ? pkg.fechaCreacion.split('T')[0] : '';
             
             if (fechaDesde && fechaHasta) {
                 matchesDate = pkgDate >= fechaDesde && pkgDate <= fechaHasta;
