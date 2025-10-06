@@ -7,6 +7,51 @@ let rutasData = [];
 let editingRouteId = null;
 
 // ============================================
+// HELPERS DE AUTENTICACIÓN
+// ============================================
+
+// Obtiene el token almacenado en localStorage
+function getAuthToken() {
+  return localStorage.getItem('token') || '';
+}
+
+// Crea los headers con el token incluido
+function getAuthHeaders(extra = {}) {
+  const t = getAuthToken();
+  return t ? { Authorization: `Bearer ${t}`, ...extra } : { ...extra };
+}
+
+/*function getAuthHeaders(extra = {}) {
+  const token = getAuthToken();
+  return token
+    ? { Authorization: `Bearer ${token}`, ...extra }
+    : { ...extra };
+}*/
+
+// Wrapper de fetch con manejo de 401 centralizado
+async function apiFetch(path, options = {}) {
+  const base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+  const headers = getAuthHeaders(options.headers || {});
+
+  const resp = await fetch(`${base}${path}`, { ...options, headers });
+
+  if (resp.status === 401) {
+    // sesión inválida / expirada → forzar relogueo
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+    } finally {
+      alert('Tu sesión ha expirado o no es válida. Inicia sesión nuevamente.');
+      window.location.href = 'login.html';
+    }
+    // corta la ejecución de quien llamó
+    throw new Error('Unauthorized');
+  }
+
+  return resp;
+}
+
+// ============================================
 // INICIALIZACIÓN
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
@@ -159,7 +204,59 @@ function generateRoleBasedMenu() {
 // ============================================
 // CARGA DE DATOS - CONECTADO A APIS REALES
 // ============================================
+// Carga de rutas desde el API (usa apiFetch y token)
+// Carga de rutas desde el API (con token y manejo de 401)
 async function cargarRutas() {
+  try {
+    console.log('🔄 Cargando rutas desde el API...');
+    const base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+
+    const resp = await fetch(`${base}/routes-management`, {
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+    });
+
+    if (resp.status === 401) {
+      alert('Tu sesión ha expirado o no es válida. Inicia sesión nuevamente.');
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+      } finally {
+        window.location.href = 'login.html';
+      }
+      return;
+    }
+    if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+
+    const data = await resp.json();
+    if (!data || data.success === false) {
+      throw new Error(data?.message || 'Respuesta inválida del servidor');
+    }
+
+    // 👇 Normaliza al shape que usa tu UI (routeId, routeName, etc.)
+    const payload = data.data || {};
+    const raw = Array.isArray(payload.routes || payload) ? (payload.routes || payload) : [];
+    rutasData = transformarDatosRutas(raw); // <- usa tu función existente
+
+    console.log(`✅ Rutas cargadas: ${rutasData.length}`);
+
+    // 👇 Usa tus funciones reales
+    actualizarEstadisticas();
+    mostrarRutas();
+    mostrarExito('Gestión de Rutas cargada completamente');
+
+  } catch (err) {
+    console.error('❌ Error cargando rutas:', err);
+    mostrarError(`Error al cargar rutas: ${err.message || err}`);
+    rutasData = [];
+    actualizarEstadisticas();
+    mostrarRutas();
+  }
+}
+
+
+
+
+/*async function cargarRutas() {
     try {
         mostrarCargando(true);
         const token = localStorage.getItem('token');
@@ -196,7 +293,7 @@ async function cargarRutas() {
         actualizarEstadisticas();
         mostrarRutas();
     }
-}
+}*/
 
 // 🔄 TRANSFORMAR DATOS DEL BACKEND AL FRONTEND
 function transformarDatosRutas(rutasBackend) {
@@ -399,6 +496,62 @@ function editarRuta(routeId) {
 }
 
 async function manejarSubmitFormulario(e) {
+  e.preventDefault();
+
+  const formData = new FormData(e.target);
+
+  // 🔄 TRANSFORMAR DATOS AL FORMATO BACKEND
+  const rutaData = {
+    nombre: formData.get('routeName'),
+    descripcion: formData.get('description'),
+    zonaCobertura: (formData.get('coverageArea') || '')
+                      .split(',')
+                      .map(z => z.trim())
+                      .filter(Boolean),
+    capacidadMaxima: parseInt(formData.get('maxCapacity')) || 50,
+    status: formData.get('status'),
+    prioridad: formData.get('priority')
+  };
+
+  try {
+    const base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+
+    if (editingRouteId) {
+      // 📝 ACTUALIZAR
+      const resp = await fetch(`${base}/routes-management/${editingRouteId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(rutaData)
+      });
+      if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || 'No se pudo actualizar la ruta');
+
+      mostrarExito('Ruta actualizada exitosamente');
+    } else {
+      // ➕ CREAR
+      const resp = await fetch(`${base}/routes-management`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(rutaData)
+      });
+      if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.message || 'No se pudo crear la ruta');
+
+      mostrarExito('Nueva ruta creada exitosamente');
+    }
+
+    cerrarModal();
+    await cargarRutas();
+
+  } catch (error) {
+    console.error('Error guardando ruta:', error);
+    mostrarError('Error al guardar la ruta: ' + error.message);
+  }
+}
+
+/*async function manejarSubmitFormulario(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
@@ -472,9 +625,9 @@ async function manejarSubmitFormulario(e) {
         console.error('Error guardando ruta:', error);
         mostrarError('Error al guardar la ruta: ' + error.message);
     }
-}
+}*/
 
-async function eliminarRuta(routeId) {
+/*async function eliminarRuta(routeId) {
     const ruta = rutasData.find(r => r.routeId === routeId);
     if (!ruta) return;
     
@@ -503,6 +656,44 @@ async function eliminarRuta(routeId) {
             mostrarError('Error al eliminar la ruta: ' + error.message);
         }
     }
+}*/
+
+async function eliminarRuta(routeId) {
+  const ruta = rutasData.find(r => r.routeId === routeId);
+  if (!ruta) return;
+
+  if (!confirm(`¿Estás seguro de que quieres eliminar la ruta "${ruta.routeName}"?`)) return;
+
+  try {
+    const base = (typeof API_BASE !== 'undefined' && API_BASE) ? API_BASE : '';
+
+    const resp = await fetch(`${base}/routes-management/${routeId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+    });
+
+    if (resp.status === 401) {
+      alert('Tu sesión ha expirado o no es válida. Inicia sesión nuevamente.');
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+      } finally {
+        window.location.href = 'login.html';
+      }
+      return;
+    }
+    if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.message || 'Error al eliminar la ruta');
+
+    mostrarExito('Ruta eliminada correctamente');
+    await cargarRutas();
+
+  } catch (error) {
+    console.error('Error eliminando ruta:', error);
+    mostrarError('Error al eliminar la ruta: ' + error.message);
+  }
 }
 
 // ============================================
