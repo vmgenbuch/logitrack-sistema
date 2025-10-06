@@ -1,3 +1,5 @@
+const API_BASE = '/api';
+
 // ============================================
 // GESTIÓN DE RUTAS LOGITRACK
 // ============================================
@@ -5,6 +7,7 @@
 // Variables globales
 let rutasData = [];
 let editingRouteId = null;
+
 
 // ============================================
 // HELPERS DE AUTENTICACIÓN
