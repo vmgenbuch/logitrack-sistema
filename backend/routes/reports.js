@@ -25,7 +25,8 @@ router.get('/dashboard', async (req, res) => {
         // Paquetes del día
         const packagesResult = await pool.query(
             `SELECT * FROM packages 
-             WHERE DATE(fecha_creacion) = $1`,
+            WHERE DATE(fecha_creacion) = $1
+            AND status != 'cancelled'`,  // ← AGREGAR ESTA LÍNEA
             [today]
         );
         
@@ -83,7 +84,8 @@ router.get('/dashboard', async (req, res) => {
         // Distribución por estado
         const statusResult = await pool.query(
             `SELECT status, COUNT(*) FROM packages 
-             WHERE DATE(fecha_creacion) = $1 
+             WHERE DATE(fecha_creacion) = $1
+             AND status != 'cancelled'  // ← AGREGAR ESTA LÍNEA
              GROUP BY status`,
             [today]
         );
