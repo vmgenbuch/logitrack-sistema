@@ -139,7 +139,7 @@ router.get('/detailed-tracking', async (req, res) => {
         
         let query = `SELECT p.*, r.nombre as route_name FROM packages p 
                      LEFT JOIN routes r ON p.ruta = r.id 
-                     WHERE 1=1`;
+                     WHERE p.status != 'cancelled'`;
         const params = [];
         let paramCount = 1;
 

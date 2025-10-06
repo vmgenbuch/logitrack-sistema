@@ -36,7 +36,11 @@ router.get('/', authorizeRoles('admin', 'logistics', 'local'), async (req, res) 
             query += ` AND status = $${paramCount}`;
             params.push(status);
             paramCount++;
+        } else {
+            // Si no hay filtro de estado, excluir cancelados por defecto
+            query += ` AND status != 'cancelled'`;
         }
+        
         if (ruta) {
             query += ` AND ruta = $${paramCount}`;
             params.push(ruta);
