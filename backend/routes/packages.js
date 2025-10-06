@@ -22,6 +22,9 @@ const generateTrackingNumber = () => {
 // GET /api/packages - Listar todos los paquetes
 router.get('/', authorizeRoles('admin', 'logistics', 'local'), async (req, res) => {
     try {
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
+        
         const { status, ruta, limit, offset } = req.query;
 
         let query = 'SELECT * FROM packages WHERE 1=1';
@@ -116,7 +119,7 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
             });
         }
         
-        // ELIMINAR las líneas 116-117 completamente
+        // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
 
         const result = await pool.query(
@@ -198,6 +201,9 @@ router.post('/', [
                 errors: errors.array()
             });
         }
+
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
 
         const { cliente, direccion, ruta, pesoEstimado, descripcion, prioridad, telefono, sucursalDestino } = req.body;
 
@@ -288,7 +294,7 @@ router.put('/:id', async (req, res) => {
             }
         });
         
-        // NUEVO: Agregar timestamps automáticamente según el status
+        // Agregar timestamps automáticamente según el status
         if (updates.status === 'in_transit' && !updates.tiempo_salida_reparto) {
             updates.tiempo_salida_reparto = new Date().toISOString();
         }
