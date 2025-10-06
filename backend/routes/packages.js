@@ -21,6 +21,80 @@ const generateTrackingNumber = () => {
 
 // GET /api/packages - Listar todos los paquetes
 router.get('/', authorizeRoles('admin', 'logistics', 'local'), async (req, res) => {
+  try {
+    // Asegura interpretación local correcta al castear DATE → TIMESTAMP
+    await pool.query("SET TIME ZONE 'America/Monterrey'");
+
+    const { status, ruta, limit, offset, fromDate, toDate } = req.query;
+
+    // Validación simple de fechas (yyyy-MM-dd)
+    const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    if ((fromDate && !isDate(fromDate)) || (toDate && !isDate(toDate))) {
+      return res.status(400).json({ success: false, message: 'Formato de fecha inválido. Usa yyyy-MM-dd.' });
+    }
+
+    let where = 'WHERE 1=1';
+    const params = [];
+    let i = 1;
+
+    if (status) {
+      where += ` AND status = $${i++}`;
+      params.push(status);
+    } else {
+      // Evita cancelados por defecto (como ya hacías)
+      where += ` AND status != 'cancelled'`;
+    }
+
+    if (ruta) {
+      where += ` AND ruta = $${i++}`;
+      params.push(ruta);
+    }
+
+    // Rango local [from, to+1 día)
+    if (fromDate) {
+      // 00:00:00 local del fromDate
+      where += ` AND fecha_creacion >= $${i++}::date`;
+      params.push(fromDate);
+    }
+    if (toDate) {
+      // exclusivo al inicio del día siguiente (local)
+      where += ` AND fecha_creacion < ($${i++}::date + INTERVAL '1 day')`;
+      params.push(toDate);
+    }
+
+    let order = ' ORDER BY fecha_creacion DESC';
+    let paging = '';
+    if (limit)  { paging += ` LIMIT $${i++}`;  params.push(parseInt(limit)); }
+    if (offset) { paging += ` OFFSET $${i++}`; params.push(parseInt(offset)); }
+
+    const sql = `SELECT * FROM packages ${where}${order}${paging}`;
+    const rows = (await pool.query(sql, params)).rows;
+
+    // Count consistente (mismo WHERE, sin ORDER/LIMIT/OFFSET)
+    const countSql = `SELECT COUNT(*)::int AS c FROM packages ${where}`;
+    const total = (await pool.query(countSql, params.slice(0, i-1 - (limit?1:0) - (offset?1:0)))).rows[0].c;
+
+    res.json({
+      success: true,
+      data: {
+        packages: rows,
+        pagination: {
+          total,
+          offset: parseInt(offset) || 0,
+          limit : parseInt(limit) || rows.length,
+          hasMore: ((parseInt(offset)||0) + rows.length) < total
+        }
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+});
+
+
+
+/*router.get('/', authorizeRoles('admin', 'logistics', 'local'), async (req, res) => {
     try {
         // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
@@ -91,7 +165,7 @@ router.get('/', authorizeRoles('admin', 'logistics', 'local'), async (req, res) 
             message: 'Error interno del servidor'
         });
     }
-});
+});*/
 
 // GET /api/packages/my-assignments - Paquetes asignados al chofer
 router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), async (req, res) => {

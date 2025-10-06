@@ -241,6 +241,75 @@ function populateBranchSelector() {
 
 // Cargar paquetes
 async function loadPackages() {
+  const token = localStorage.getItem('token');
+
+  try {
+    showLoading();
+
+    // Lee filtros del UI
+    const fechaDesde = document.getElementById('fechaDesde')?.value || '';
+    const fechaHasta = document.getElementById('fechaHasta')?.value || '';
+    const status     = document.getElementById('statusFilter')?.value || '';
+    const ruta       = document.getElementById('routeFilter')?.value || '';
+
+    // Construye querystring
+    const params = new URLSearchParams();
+    if (fechaDesde) params.set('fromDate', fechaDesde);   // yyyy-MM-dd
+    if (fechaHasta) params.set('toDate',   fechaHasta);
+    if (status)     params.set('status',   status);
+    if (ruta)       params.set('ruta',     ruta);
+
+    const url = `${API_BASE}/packages${params.toString() ? `?${params}` : ''}`;
+
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+
+    if (!data.success) throw new Error(data.message || 'Error cargando paquetes');
+
+    // Mapear snake_case → camelCase (como ya lo hacías)
+    packages = (data.data.packages || []).map(pkg => ({
+      id: pkg.id,
+      trackingNumber: pkg.tracking_number,
+      cliente: pkg.cliente,
+      telefono: pkg.telefono,
+      direccion: pkg.direccion,
+      sucursalDestino: pkg.sucursal_destino,
+      ruta: pkg.ruta,
+      prioridad: pkg.prioridad,
+      pesoEstimado: pkg.peso_estimado,
+      pesoSalida: pkg.peso_salida,
+      pesoEntrega: pkg.peso_entrega,
+      descripcion: pkg.descripcion,
+      status: pkg.status,
+      fechaCreacion: pkg.fecha_creacion,
+      tiempoSalidaReparto: pkg.tiempo_salida_reparto,
+      tiempoEntrega: pkg.tiempo_entrega,
+      incidencia: pkg.incidencia,
+      nombreQuienRecibio: pkg.nombre_quien_recibio,
+      cargoQuienRecibio: pkg.cargo_quien_recibio,
+      fotoSalida: pkg.foto_salida,
+      fotoEntrega: pkg.foto_entrega,
+      firmaDigital: pkg.firma_digital,
+      validacionReceptor: pkg.validacion_receptor
+    }));
+
+    updateStatistics();
+    applyFilters();  // ahora filtrará básicamente por texto/estado/ruta
+    clearError();
+  } catch (error) {
+    console.error('Error cargando paquetes:', error);
+    showError(`Error cargando paquetes: ${error.message}`);
+    displayPackages([]);
+  }
+}
+
+
+
+
+/*async function loadPackages() {
     const token = localStorage.getItem('token');
     
     try {
@@ -291,7 +360,7 @@ async function loadPackages() {
         showError(`Error cargando paquetes: ${error.message}`);
         displayPackages([]);
     }
-}
+}*/
 
 
 
@@ -328,7 +397,20 @@ function applyFilters() {
         const matchesRoute = !routeFilter || pkg.ruta === routeFilter;
         
         let matchesDate = true;
+        
         if (fechaDesde || fechaHasta) {
+           let pkgDate = '';
+           if (pkg.fechaCreacion) {
+              const d = new Date(pkg.fechaCreacion);
+              const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+              pkgDate = local.toISOString().split('T')[0]; // yyyy-MM-dd local
+            }
+           if (fechaDesde && fechaHasta)      matchesDate = pkgDate >= fechaDesde && pkgDate <= fechaHasta;
+           else if (fechaDesde)               matchesDate = pkgDate >= fechaDesde;
+           else if (fechaHasta)               matchesDate = pkgDate <= fechaHasta;
+        }
+
+        /*if (fechaDesde || fechaHasta) {
             // Extraer solo la fecha sin conversión UTC
             const pkgDate = pkg.fechaCreacion ? pkg.fechaCreacion.split('T')[0] : '';
             
@@ -339,7 +421,7 @@ function applyFilters() {
             } else if (fechaHasta) {
                 matchesDate = pkgDate <= fechaHasta;
             }
-        }
+        }*/
         
         return matchesSearch && matchesStatus && matchesRoute && matchesDate;
     });
