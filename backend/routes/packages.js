@@ -299,14 +299,24 @@ router.put('/:id', async (req, res) => {
         
         // Agregar timestamps automáticamente desde PostgreSQL con timezone explícito
         if (updates.status === 'in_transit' && !updates.tiempo_salida_reparto) {
-            const timeResult = await pool.query("SELECT (NOW() AT TIME ZONE 'America/Monterrey')::timestamptz::text as now");
-            updates.tiempo_salida_reparto = timeResult.rows[0].now;
-        }
+    const timeResult = await pool.query(`
+        SELECT to_char(
+            timezone('America/Monterrey', NOW()), 
+            'YYYY-MM-DD"T"HH24:MI:SS"-06:00"'
+        ) as now
+    `);
+    updates.tiempo_salida_reparto = timeResult.rows[0].now;
+}
 
-        if (updates.status === 'delivered' && !updates.tiempo_entrega) {
-            const timeResult = await pool.query("SELECT (NOW() AT TIME ZONE 'America/Monterrey')::timestamptz::text as now");
-            updates.tiempo_entrega = timeResult.rows[0].now;
-        }
+if (updates.status === 'delivered' && !updates.tiempo_entrega) {
+    const timeResult = await pool.query(`
+        SELECT to_char(
+            timezone('America/Monterrey', NOW()), 
+            'YYYY-MM-DD"T"HH24:MI:SS"-06:00"'
+        ) as now
+    `);
+    updates.tiempo_entrega = timeResult.rows[0].now;
+}
         
         // Control de permisos
         if (userRole === 'chofer') {
