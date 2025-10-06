@@ -297,14 +297,14 @@ router.put('/:id', async (req, res) => {
             }
         });
         
-        // Agregar timestamps automáticamente desde PostgreSQL
+        // Agregar timestamps automáticamente desde PostgreSQL con timezone explícito
         if (updates.status === 'in_transit' && !updates.tiempo_salida_reparto) {
-            const timeResult = await pool.query("SELECT CURRENT_TIMESTAMP::text as now");
+            const timeResult = await pool.query("SELECT (NOW() AT TIME ZONE 'America/Monterrey')::text as now");
             updates.tiempo_salida_reparto = timeResult.rows[0].now;
         }
         
         if (updates.status === 'delivered' && !updates.tiempo_entrega) {
-            const timeResult = await pool.query("SELECT CURRENT_TIMESTAMP::text as now");
+            const timeResult = await pool.query("SELECT (NOW() AT TIME ZONE 'America/Monterrey')::text as now");
             updates.tiempo_entrega = timeResult.rows[0].now;
         }
         
