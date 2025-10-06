@@ -178,25 +178,25 @@ router.get('/detailed-tracking', async (req, res) => {
         totalMinutos = Math.round((entrega - salida) / 60000);
     }
     
-    // Formatear timestamps - PostgreSQL devuelve objetos Date
+    // Formatear timestamps - Restar 6 horas manualmente
     let tiempoSalidaFormateado = '-';
     if (pkg.tiempo_salida_reparto) {
-        const date = new Date(pkg.tiempo_salida_reparto);
-        tiempoSalidaFormateado = date.toLocaleTimeString('es-MX', { 
+        const utcDate = new Date(pkg.tiempo_salida_reparto);
+        const monterreyDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000)); // UTC-6
+        tiempoSalidaFormateado = monterreyDate.toLocaleTimeString('es-MX', { 
             hour: '2-digit', 
             minute: '2-digit',
-            timeZone: 'America/Monterrey',
             hour12: true 
         });
     }
     
     let tiempoEntregaFormateado = '-';
     if (pkg.tiempo_entrega) {
-        const date = new Date(pkg.tiempo_entrega);
-        tiempoEntregaFormateado = date.toLocaleTimeString('es-MX', { 
+        const utcDate = new Date(pkg.tiempo_entrega);
+        const monterreyDate = new Date(utcDate.getTime() - (6 * 60 * 60 * 1000)); // UTC-6
+        tiempoEntregaFormateado = monterreyDate.toLocaleTimeString('es-MX', { 
             hour: '2-digit', 
             minute: '2-digit',
-            timeZone: 'America/Monterrey',
             hour12: true 
         });
     }
