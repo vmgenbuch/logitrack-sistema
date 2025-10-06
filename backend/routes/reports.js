@@ -134,6 +134,9 @@ router.get('/dashboard', async (req, res) => {
 // GET /api/reports/detailed-tracking - Reporte detallado de seguimiento
 router.get('/detailed-tracking', async (req, res) => {
     try {
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
+
         const { fechaInicio, fechaFin, ruta, estado } = req.query;
         
         let query = `SELECT p.*, r.nombre as route_name FROM packages p 
