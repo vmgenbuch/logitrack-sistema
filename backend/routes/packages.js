@@ -223,7 +223,7 @@ router.post('/', [
                 tracking_number, cliente, direccion, telefono, ruta, sucursal_destino,
                 descripcion, prioridad, status, peso_estimado, 
                 incidencia, validacion_receptor, fecha_creacion
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
             RETURNING *`,
             [
                 trackingNumber,
@@ -271,6 +271,9 @@ router.post('/', [
 // PUT /api/packages/:id - Actualizar paquete
 router.put('/:id', async (req, res) => {
     try {
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
+        
         const updates = req.body;
         const userRole = req.user.role;
         
@@ -294,13 +297,15 @@ router.put('/:id', async (req, res) => {
             }
         });
         
-        // Agregar timestamps automáticamente según el status
+        // Agregar timestamps automáticamente desde PostgreSQL
         if (updates.status === 'in_transit' && !updates.tiempo_salida_reparto) {
-            updates.tiempo_salida_reparto = new Date().toISOString();
+            const timeResult = await pool.query("SELECT CURRENT_TIMESTAMP::text as now");
+            updates.tiempo_salida_reparto = timeResult.rows[0].now;
         }
         
         if (updates.status === 'delivered' && !updates.tiempo_entrega) {
-            updates.tiempo_entrega = new Date().toISOString();
+            const timeResult = await pool.query("SELECT CURRENT_TIMESTAMP::text as now");
+            updates.tiempo_entrega = timeResult.rows[0].now;
         }
         
         // Control de permisos

@@ -59,11 +59,16 @@ router.post('/login', [
             });
         }
 
-        // Actualizar último login
-        await pool.query(
-            'UPDATE users SET last_login = NOW() WHERE id = $1',
-            [user.id]
+        // CRÍTICO: Configurar zona horaria de Monterrey
+        await pool.query("SET timezone = 'America/Monterrey'");
+
+        // Actualizar último login con timezone correcto
+        const loginTimeResult = await pool.query(
+              'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1 RETURNING last_login',
+              [user.id]
         );
+
+        
 
         // Generar token con TODOS los datos necesarios
         const tokenData = {
@@ -86,7 +91,7 @@ router.post('/login', [
             fullName: user.full_name || user.username,
             sucursal: user.sucursal,
             branchId: user.branch_id,
-            lastLogin: new Date().toISOString()
+            lastLogin: loginTimeResult.rows[0].last_login
         };
 
         console.log('Login exitoso. UserData enviado:', userData);

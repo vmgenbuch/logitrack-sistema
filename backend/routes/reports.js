@@ -12,7 +12,6 @@ router.use(authorizeRoles('admin', 'logistics'));
 // GET /api/reports/dashboard - Dashboard principal de reportes
 router.get('/dashboard', async (req, res) => {
     try {
-        
         // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
         
@@ -26,8 +25,7 @@ router.get('/dashboard', async (req, res) => {
         // Paquetes del día
         const packagesResult = await pool.query(
             `SELECT * FROM packages 
-             WHERE DATE(fecha_creacion) = $1 
-             OR (status = 'delivered' AND DATE(tiempo_entrega) = $1)`,
+             WHERE DATE(fecha_creacion) = $1`,
             [today]
         );
         
@@ -65,8 +63,7 @@ router.get('/dashboard', async (req, res) => {
                     COUNT(*) as total,
                     COUNT(CASE WHEN status = 'delivered' THEN 1 END) as delivered
                  FROM packages 
-                 WHERE DATE(fecha_creacion) = $1 
-                 OR (status = 'delivered' AND DATE(tiempo_entrega) = $1)`,
+                 WHERE DATE(fecha_creacion) = $1`,
                 [dateStr]
             );
             
@@ -137,7 +134,7 @@ router.get('/detailed-tracking', async (req, res) => {
     try {
         // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
-
+        
         const { fechaInicio, fechaFin, ruta, estado } = req.query;
         
         let query = `SELECT p.*, r.nombre as route_name FROM packages p 
@@ -146,10 +143,9 @@ router.get('/detailed-tracking', async (req, res) => {
         const params = [];
         let paramCount = 1;
 
-        // Filtrar por fechas
+        // Filtrar por fechas - SIMPLIFICADO
         if (fechaInicio && fechaFin) {
-            query += ` AND ((p.status = 'delivered' AND DATE(p.tiempo_entrega) BETWEEN $${paramCount} AND $${paramCount + 1})
-                       OR (p.status != 'delivered' AND DATE(p.fecha_creacion) BETWEEN $${paramCount} AND $${paramCount + 1}))`;
+            query += ` AND DATE(p.fecha_creacion) BETWEEN $${paramCount} AND $${paramCount + 1}`;
             params.push(fechaInicio, fechaFin);
             paramCount += 2;
         }
@@ -170,53 +166,53 @@ router.get('/detailed-tracking', async (req, res) => {
         const result = await pool.query(query, params);
 
         const detailedReport = result.rows.map(pkg => {
-    const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
-    const pesoFinal = pkg.peso_entrega || 0;
-    const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
-    
-    // Calcular tiempo total
-    let totalMinutos = 0;
-    if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
-        const salida = new Date(pkg.tiempo_salida_reparto);
-        const entrega = new Date(pkg.tiempo_entrega);
-        totalMinutos = Math.round((entrega - salida) / 60000);
-    }
-    
-    return {
-        id: pkg.id,
-        trackingNumber: pkg.tracking_number,
-        cliente: pkg.cliente,
-        ruta: pkg.route_name || 'N/A',
-        tiempoSalidaReparto: pkg.tiempo_salida_reparto ? 
-            new Date(pkg.tiempo_salida_reparto).toLocaleTimeString('es-MX', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                timeZone: 'America/Monterrey',  // ← AGREGAR ESTO
-                hour12: true 
-            }) : '-',
-        tiempoEntrega: pkg.tiempo_entrega ? 
-            new Date(pkg.tiempo_entrega).toLocaleTimeString('es-MX', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                timeZone: 'America/Monterrey',  // ← AGREGAR ESTO
-                hour12: true 
-            }) : '-',
-        totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
-        diferenciaMinutos: totalMinutos,
-        pesoSalida: pesoInicial,
-        pesoEntrega: pesoFinal,
-        diferenciaPeso: diferenciaPeso,
-        efectividad: pkg.efectividad || 0
-    };
-});
+            const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
+            const pesoFinal = pkg.peso_entrega || 0;
+            const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
+            
+            // Calcular tiempo total
+            let totalMinutos = 0;
+            if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
+                const salida = new Date(pkg.tiempo_salida_reparto);
+                const entrega = new Date(pkg.tiempo_entrega);
+                totalMinutos = Math.round((entrega - salida) / 60000);
+            }
+            
+            return {
+                id: pkg.id,
+                trackingNumber: pkg.tracking_number,
+                cliente: pkg.cliente,
+                ruta: pkg.route_name || 'N/A',
+                tiempoSalidaReparto: pkg.tiempo_salida_reparto ? 
+                    new Date(pkg.tiempo_salida_reparto).toLocaleTimeString('es-MX', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        timeZone: 'America/Monterrey',
+                        hour12: true 
+                    }) : '-',
+                tiempoEntrega: pkg.tiempo_entrega ? 
+                    new Date(pkg.tiempo_entrega).toLocaleTimeString('es-MX', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        timeZone: 'America/Monterrey',
+                        hour12: true 
+                    }) : '-',
+                totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
+                diferenciaMinutos: totalMinutos,
+                pesoSalida: pesoInicial,
+                pesoEntrega: pesoFinal,
+                diferenciaPeso: diferenciaPeso,
+                efectividad: pkg.efectividad || 0
+            };
+        });
 
-res.json({
-    success: true,
-    data: {
-        filters: { fechaInicio, fechaFin, ruta, estado },
-        records: detailedReport
-    }
-});
+        res.json({
+            success: true,
+            data: {
+                filters: { fechaInicio, fechaFin, ruta, estado },
+                records: detailedReport
+            }
+        });
 
     } catch (error) {
         console.error('Error generando reporte detallado:', error);
@@ -258,7 +254,6 @@ router.get('/route-performance', async (req, res) => {
                     avgDeliveryTime: parseFloat(parseFloat(metrics.avg_delivery_time || 0).toFixed(1)),
                     avgEffectiveness: parseFloat(parseFloat(metrics.avg_effectiveness || 0).toFixed(1)),
                     avgWeight: parseFloat(parseFloat(metrics.avg_weight || 0).toFixed(1))
-                    
                 }
             };
         }));
