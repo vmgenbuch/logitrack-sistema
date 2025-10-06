@@ -178,34 +178,38 @@ router.get('/detailed-tracking', async (req, res) => {
                 totalMinutos = Math.round((entrega - salida) / 60000);
             }
             
+            // Formatear timestamps con zona horaria correcta
+            let tiempoSalidaFormateado = '-';
+            if (pkg.tiempo_salida_reparto) {
+                const timestamp = pkg.tiempo_salida_reparto.replace(' ', 'T') + 'Z';
+                const utcDate = new Date(timestamp);
+                tiempoSalidaFormateado = utcDate.toLocaleTimeString('es-MX', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'America/Monterrey',
+                    hour12: true 
+                });
+            }
+            
+            let tiempoEntregaFormateado = '-';
+            if (pkg.tiempo_entrega) {
+                const timestamp = pkg.tiempo_entrega.replace(' ', 'T') + 'Z';
+                const utcDate = new Date(timestamp);
+                tiempoEntregaFormateado = utcDate.toLocaleTimeString('es-MX', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: 'America/Monterrey',
+                    hour12: true 
+                });
+            }
+            
             return {
                 id: pkg.id,
                 trackingNumber: pkg.tracking_number,
                 cliente: pkg.cliente,
                 ruta: pkg.route_name || 'N/A',
-                tiempoSalidaReparto: pkg.tiempo_salida_reparto ? 
-    (() => {
-        // Forzar interpretación UTC y convertir a Monterrey
-        const timestamp = pkg.tiempo_salida_reparto.replace(' ', 'T') + 'Z';
-        const utcDate = new Date(timestamp);
-        return utcDate.toLocaleTimeString('es-MX', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'America/Monterrey',
-            hour12: true 
-        });
-    })() : '-',
-tiempoEntrega: pkg.tiempo_entrega ? 
-    (() => {
-        const timestamp = pkg.tiempo_entrega.replace(' ', 'T') + 'Z';
-        const utcDate = new Date(timestamp);
-        return utcDate.toLocaleTimeString('es-MX', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'America/Monterrey',
-            hour12: true 
-        });
-    })() : '-',
+                tiempoSalidaReparto: tiempoSalidaFormateado,
+                tiempoEntrega: tiempoEntregaFormateado,
                 totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
                 diferenciaMinutos: totalMinutos,
                 pesoSalida: pesoInicial,
