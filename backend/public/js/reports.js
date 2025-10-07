@@ -21,6 +21,25 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function configurarEventListeners() {
+    // Filtros del dashboard general
+   const btnFiltrarDashboard = document.getElementById('btnFiltrarDashboard');
+   const btnHoyDashboard = document.getElementById('btnHoyDashboard');
+
+   if (btnFiltrarDashboard) {
+        btnFiltrarDashboard.addEventListener('click', () => {
+          cargarDashboardConFiltros();
+        });
+    }
+
+    if (btnHoyDashboard) {
+        btnHoyDashboard.addEventListener('click', () => {
+          const hoy = new Date().toISOString().split('T')[0];
+          document.getElementById('dashboardStartDate').value = hoy;
+          document.getElementById('dashboardEndDate').value = hoy;
+          cargarDashboardConFiltros();
+        });
+    }
+
     // Event listeners para filtros de incidencias
     const filterIncidentsBtn = document.getElementById('filterIncidentsBtn');
     if (filterIncidentsBtn) {
@@ -67,6 +86,14 @@ function configurarEventListeners() {
     }
 }
 
+function establecerFechasHoy() {
+    const hoy = new Date().toISOString().split('T')[0];
+    const desde = document.getElementById('dashboardStartDate');
+    const hasta = document.getElementById('dashboardEndDate');
+    if (desde) desde.value = hoy;
+    if (hasta) hasta.value = hoy;
+}
+
 async function inicializarSistema() {
     try {
         // Verificar autenticación
@@ -75,6 +102,12 @@ async function inicializarSistema() {
             window.location.href = '/login.html';
             return;
         }
+
+        // ✅ Establecer fechas actuales en el dashboard al iniciar
+        establecerFechasHoy();
+
+        // ✅ Cargar dashboard solo con datos del día actual
+        await cargarDashboardConFiltros();
 
         // Configurar fechas por defecto
         configurarFechasPorDefecto();
@@ -90,6 +123,27 @@ async function inicializarSistema() {
 }
 
 function configurarFechasPorDefecto() {
+  // Fecha local YYYY-MM-DD sin desfase UTC
+  const hoy = new Date();
+  const y = hoy.getFullYear();
+  const m = String(hoy.getMonth() + 1).padStart(2, '0');
+  const d = String(hoy.getDate()).padStart(2, '0');
+  const fechaHoy = `${y}-${m}-${d}`;
+
+  // Filtros del Dashboard General
+  const dStart = document.getElementById('dashboardStartDate');
+  const dEnd   = document.getElementById('dashboardEndDate');
+  if (dStart) dStart.value = fechaHoy;
+  if (dEnd)   dEnd.value   = fechaHoy;
+
+  // Filtros de Seguimiento Detallado (los que ya tenías)
+  const fechaInicio = document.getElementById('fechaInicio');
+  const fechaFin    = document.getElementById('fechaFin');
+  if (fechaInicio) fechaInicio.value = fechaHoy;
+  if (fechaFin)    fechaFin.value    = fechaHoy;
+}
+
+/*function configurarFechasPorDefecto() {
     const hoy = new Date();
     
     // Obtener fecha local sin conversión UTC
@@ -103,7 +157,7 @@ function configurarFechasPorDefecto() {
     
     if (fechaInicio) fechaInicio.value = fechaHoy;
     if (fechaFin) fechaFin.value = fechaHoy;
-}
+}+/
 
 /*function configurarFechasPorDefecto() {
     const hoy = new Date();
@@ -120,6 +174,40 @@ function configurarFechasPorDefecto() {
 // GESTIÓN DE DATOS
 // ============================================
 async function cargarDatos() {
+  try {
+    mostrarCargando();
+
+    const token = localStorage.getItem('token');
+
+    // Cargar datos según el tab activo
+    switch (tabActual) {
+      case 'dashboard':
+        // ✅ cargar solo con el rango de los inputs (por defecto: HOY)
+        await cargarDashboardConFiltros();
+        break;
+      case 'seguimiento':
+        await cargarSeguimiento();
+        break;
+      case 'rutas':
+        await cargarRutas();
+        break;
+      case 'incidencias':
+        await cargarIncidencias();
+        break;
+      default:
+        await cargarDashboardConFiltros();
+    }
+
+    ocultarCargando();
+
+  } catch (error) {
+    console.error('❌ Error al cargar datos:', error);
+    mostrarError('Error al cargar los datos del servidor');
+    ocultarCargando();
+  }
+}
+
+/*async function cargarDatos() {
     try {
         mostrarCargando();
         
@@ -150,12 +238,39 @@ async function cargarDatos() {
         mostrarError('Error al cargar los datos del servidor');
         ocultarCargando();
     }
-}
+}*/
 
 // ============================================
 // DASHBOARD GENERAL
 // ============================================
 async function cargarDashboard() {
+  try {
+    const token = localStorage.getItem('token');
+    // Si no hay inputs del dashboard, carga sin filtros (fallback)
+    const hasInputs = document.getElementById('dashboardStartDate') && document.getElementById('dashboardEndDate');
+    if (hasInputs) return cargarDashboardConFiltros();
+
+    const response = await fetch('/api/reports/dashboard', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+    const datos = await response.json();
+
+    datosGlobales = datos;
+    actualizarDashboard();
+
+  } catch (error) {
+    console.error('❌ Error cargando dashboard:', error);
+    mostrarError('Error al cargar el dashboard');
+  }
+}
+
+/*async function cargarDashboard() {
     try {
         const token = localStorage.getItem('token');
         const response = await fetch('/api/reports/dashboard', {
@@ -179,6 +294,38 @@ async function cargarDashboard() {
     } catch (error) {
         console.error('❌ Error cargando dashboard:', error);
         mostrarError('Error al cargar el dashboard');
+    }
+}*/
+
+async function cargarDashboardConFiltros() {
+    try {
+        const token = localStorage.getItem('token');
+        const start = document.getElementById('dashboardStartDate')?.value;
+        const end = document.getElementById('dashboardEndDate')?.value;
+
+        const params = new URLSearchParams();
+        if (start) params.append('startDate', start);
+        if (end) params.append('endDate', end);
+
+        const response = await fetch(`/api/reports/dashboard?${params}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+        const datos = await response.json();
+        datosGlobales = datos;
+        actualizarDashboard();
+
+        mostrarExito('Dashboard actualizado con los filtros seleccionados');
+
+    } catch (error) {
+        console.error('❌ Error cargando dashboard filtrado:', error);
+        mostrarError('No se pudo cargar el dashboard con los filtros');
     }
 }
 
