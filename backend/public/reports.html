@@ -361,7 +361,23 @@
         </div>
 
         <!-- Dashboard General -->
+        
+
         <div id="dashboard" class="tab-content active">
+            <!-- 🔹 NUEVO BLOQUE: FILTRO DE FECHA -->
+            <div class="filters">
+              <div class="filter-group">
+                <label>Desde:</label>
+                <input type="date" id="dashboardStartDate">
+              </div>
+              <div class="filter-group">
+                <label>Hasta:</label>
+                <input type="date" id="dashboardEndDate">
+              </div>
+              <button class="btn" id="btnFiltrarDashboard">Filtrar</button>
+              <button class="btn" id="btnHoyDashboard">Hoy</button>
+            </div>
+
             <div class="metrics-grid" id="metricas-principales">
                 <div class="metric-card">
                     <div class="metric-icon packages">📦</div>
