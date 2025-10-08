@@ -220,36 +220,46 @@ function actualizarTablaUsuarios() {
     if (!tbody) return;
 
     tbody.innerHTML = usuariosData.map(usuario => `
-        <tr>
-            <td>
-                <div class="user-info">
-                    <div class="user-avatar">${usuario.nombre.charAt(0).toUpperCase()}</div>
-                    <div class="user-details">
-                        <div class="user-name">${usuario.nombre}</div>
-                        <div class="user-email">${usuario.email}</div>
-                    </div>
-                </div>
-            </td>
-            <td><span class="role-badge role-${usuario.rol}">${usuario.rol}</span></td>
-            <td><span class="status-badge status-${usuario.estado}">${usuario.estado}</span></td>
-            <td>${new Date(usuario.fechaCreacion).toLocaleDateString('es-ES')}</td>
-            <td>
-                <div class="actions">
-                    <button class="btn-action edit" data-user-id="${usuario.id}" title="Editar">
-                        ✏️ Editar
-                    </button>
-                    <button class="btn-action ${usuario.estado === 'activo' ? 'deactivate' : 'activate'}" 
-                            data-user-id="${usuario.id}" 
-                            title="${usuario.estado === 'activo' ? 'Desactivar' : 'Activar'}">
-                        ${usuario.estado === 'activo' ? '🚫 Desactivar' : '✅ Activar'}
-                    </button>
-                    <button class="btn-action delete" data-user-id="${usuario.id}" title="Eliminar">
-                        🗑️ Eliminar
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+  <tr>
+    <td>
+      <div class="user-info">
+        <div class="user-avatar">${usuario.nombre.charAt(0).toUpperCase()}</div>
+        <div class="user-details">
+          <div class="user-name">${usuario.nombre}</div>
+          <div class="user-email">${usuario.email}</div>
+        </div>
+      </div>
+    </td>
+    <td><span class="role-badge role-${usuario.rol}">${usuario.rol}</span></td>
+    <td><span class="status-badge status-${usuario.estado}">${usuario.estado}</span></td>
+    <td>${new Date(usuario.fechaCreacion).toLocaleDateString('es-ES')}</td>
+    <td>
+      <div class="actions">
+        <button type="button"
+                class="btn-action edit"
+                data-user-id="${usuario.id}"
+                onclick="editarUsuario('${usuario.id}')">
+          ✏️ Editar
+        </button>
+        <button type="button"
+                class="btn-action ${usuario.estado === 'activo' ? 'deactivate' : 'activate'}"
+                data-user-id="${usuario.id}"
+                title="${usuario.estado === 'activo' ? 'Desactivar' : 'Activar'}"
+                onclick="${usuario.estado === 'activo'
+                    ? `cambiarEstadoUsuario && cambiarEstadoUsuario('${usuario.id}', 'inactive')`
+                    : `cambiarEstadoUsuario && cambiarEstadoUsuario('${usuario.id}', 'active')`}">
+          ${usuario.estado === 'activo' ? '🚫 Desactivar' : '✅ Activar'}
+        </button>
+        <button type="button"
+                class="btn-action delete"
+                data-user-id="${usuario.id}"
+                onclick="eliminarUsuario && eliminarUsuario('${usuario.id}')">
+          🗑️ Eliminar
+        </button>
+      </div>
+    </td>
+  </tr>
+`).join('');
     
     // Agregar event listeners después de crear las filas
     setupActionButtons();
@@ -391,6 +401,8 @@ async function editarUsuario(userId) {
     if (sel) sel.value = String(usuarioEditando.branchId);
   }
 } 
+
+window.editarUsuario = editarUsuario;
 
 /*function editarUsuario(userId) {
     usuarioEditando = usuariosData.find(u => u.id === userId);
