@@ -248,31 +248,6 @@ function actualizarTablaUsuarios() {
   setupActionButtons();
 }
 
-function setupActionButtons() {
-    // Botones de editar
-    document.querySelectorAll('.btn-action.edit').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const userId = this.dataset.userId;
-            editarUsuario(userId);
-        });
-    });
-    
-    // Botones de activar/desactivar
-    document.querySelectorAll('.btn-action.activate, .btn-action.deactivate').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const userId = this.dataset.userId;
-            toggleEstadoUsuario(userId);
-        });
-    });
-    
-    // Botones de eliminar
-    document.querySelectorAll('.btn-action.delete').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const userId = this.dataset.userId;
-            eliminarUsuario(userId);
-        });
-    });
-}
 
 function setupActionButtons() {
     // Botones de editar
@@ -367,23 +342,42 @@ async function guardarUsuario() {
 }
 
 async function editarUsuario(userId) {
-  usuarioEditando = usuariosData.find(u => u.id === userId);
-  if (!usuarioEditando) return;
+  // 1) Busca el usuario
+  usuarioEditando = usuariosData.find(u => String(u.id) === String(userId));
+  if (!usuarioEditando) {
+    console.warn('[Users] Usuario no encontrado:', userId);
+    return;
+  }
 
-  // Llenar formulario
+  // 2) Llena el formulario
   document.getElementById('fullName').value = usuarioEditando.nombre || '';
   document.getElementById('email').value = usuarioEditando.email || '';
   document.getElementById('phone').value = usuarioEditando.telefono || '';
   document.getElementById('role').value = usuarioEditando.rol || '';
   document.getElementById('password').value = '';
 
-  // Cargar sucursales y preseleccionar si el usuario ya tiene una
-  await loadBranchesForSelect();
-  if (usuarioEditando.branchId) {
-    const sel = document.getElementById('userBranch');
-    if (sel) sel.value = String(usuarioEditando.branchId);
+  // 3) Carga sucursales y preselecciona si hay branchId
+  await loadBranchesForSelect(usuarioEditando.branchId);
+
+  // 4) Muestra/oculta el campo sucursal según el rol actual y engancha el listener del rol
+  toggleBranchFieldForRole(document.getElementById('role')?.value || '');
+  attachRoleChangeListener();
+
+  // 5) Cambia el título del modal
+  const modalTitle = document.getElementById('modalTitle');
+  if (modalTitle) modalTitle.textContent = 'Editar Usuario';
+
+  // 6) Abre el modal (ID correcto)
+  const modal = document.getElementById('userModal');
+  if (!modal) {
+    console.error('No existe #userModal en el DOM');
+    return;
   }
-} 
+  modal.style.display = 'flex';
+  modal.classList.add('active');
+
+  console.log('[Users] Modal abierto para id:', userId);
+}
 
 
 
@@ -718,10 +712,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('filtroEstado')?.addEventListener('change', filtrarUsuarios);
     
     // Cerrar modal al hacer clic fuera
-    document.getElementById('modalUsuario')?.addEventListener('click', function(e) {
-        if (e.target === this) {
-            cerrarModal();
-        }
+    document.getElementById('userModal')?.addEventListener('click', function(e) {
+       if (e.target === this) cerrarModal();
     });
 });
 
