@@ -562,6 +562,54 @@ function mostrarMensaje(mensaje, tipo) {
     setTimeout(() => mensajeDiv.remove(), 3000);
 }
 
+// Handler único para clicks en la tabla (delegación)
+let onUsersTableClick = null;
+
+function setupActionButtons() {
+  const tbody = document.querySelector('#tablaUsuarios tbody');
+  if (!tbody) return;
+
+  // Evita duplicados si la tabla se vuelve a renderizar
+  if (onUsersTableClick) {
+    tbody.removeEventListener('click', onUsersTableClick);
+  }
+
+  onUsersTableClick = (e) => {
+    // busca el botón más cercano dentro del tbody
+    const btn = e.target.closest('button.btn-action');
+    if (!btn || !tbody.contains(btn)) return;
+
+    const id = btn.dataset.userId;
+    if (!id) return;
+
+    if (btn.classList.contains('edit')) {
+      // ✏️ Editar
+      editarUsuario(id);
+      return;
+    }
+
+    if (btn.classList.contains('delete')) {
+      // 🗑️ Eliminar
+      eliminarUsuario?.(id);
+      return;
+    }
+
+    if (btn.classList.contains('deactivate')) {
+      // 🚫 Desactivar
+      cambiarEstadoUsuario?.(id, 'inactive');
+      return;
+    }
+
+    if (btn.classList.contains('activate')) {
+      // ✅ Activar
+      cambiarEstadoUsuario?.(id, 'active');
+      return;
+    }
+  };
+
+  tbody.addEventListener('click', onUsersTableClick);
+}
+
 // 👇 Añade aquí la nueva función utilitaria
 function toggleBranchFieldForRole(role) {
   const group = document.getElementById('branchFieldGroup'); // contenedor del select
