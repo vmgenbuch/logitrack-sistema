@@ -36,7 +36,45 @@ async function cargarUsuarios() {
 }
 
 // Carga sucursales en el select (ajusta a tu función si ya tienes una)
-async function loadBranchesForSelect() {
+async function loadBranchesForSelect(preselectId = null) {
+  const select = document.getElementById('userBranch');
+  if (!select) return;
+
+  // Limpia y placeholder
+  select.innerHTML = '<option value="">Seleccionar sucursal...</option>';
+
+  // 🔐 Usa la ruta de admin (con token)
+  const resp = await fetch('/api/admin/branches', {
+    headers: {
+      'Authorization': 'Bearer ' + (localStorage.getItem('token') || ''),
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!resp.ok) {
+    console.error('No se pudo cargar sucursales. HTTP:', resp.status);
+    return;
+  }
+
+  const json = await resp.json();
+  // adapta según tu respuesta: { success, data: { branches: [...] } } o { success, data: [...] }
+  const branches = json?.data?.branches || json?.data || [];
+
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = String(b.id);
+    opt.textContent = b.nombre || b.name || `Sucursal ${b.id}`;
+    opt.dataset.name = b.nombre || b.name || '';
+    select.appendChild(opt);
+  });
+
+  // Preselección al editar
+  if (preselectId) {
+    select.value = String(preselectId);
+  }
+}
+
+/*async function loadBranchesForSelect() {
   const select = document.getElementById('userBranch');
   if (!select) return;
   // Evita duplicados
@@ -54,7 +92,7 @@ async function loadBranchesForSelect() {
     opt.dataset.name = b.nombre || b.name || '';
     select.appendChild(opt);
   }
-}
+}*/
 
 // ============================================
 // FUNCIONES DE API
