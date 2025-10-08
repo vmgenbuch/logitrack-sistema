@@ -11,6 +11,114 @@ router.use(authorizeRoles('admin', 'logistics'));
 
 // GET /api/reports/dashboard - Dashboard principal de reportes
 router.get('/dashboard', async (req, res) => {
+  try {
+    await pool.query("SET TIME ZONE 'America/Monterrey'");
+
+    // Lee filtros (yyyy-MM-dd). Si no vienen, usa hoy.
+    const { startDate, endDate } = req.query;
+    const { rows: [{ today }] } = await pool.query("SELECT CURRENT_DATE::text AS today");
+    const start = startDate || today;
+    const end   = endDate   || today;
+
+    // Rango local [start, end+1) en zona Monterrey (sin problemas de UTC/horario de verano)
+    const params = [start, end];
+
+    // Paquetes del rango, excluyendo cancelados
+    const { rows: pkgRows } = await pool.query(
+      `
+      SELECT *
+      FROM packages
+      WHERE status != 'cancelled'
+        AND fecha_creacion >= $1::date
+        AND fecha_creacion <  ($2::date + INTERVAL '1 day')
+      `, params
+    );
+
+    const totalPackages = pkgRows.length;
+    const deliveredPackages = pkgRows.filter(p => p.status === 'delivered');
+    const deliveryRate = totalPackages ? +(deliveredPackages.length * 100 / totalPackages).toFixed(1) : 0;
+
+    // Tiempo promedio y efectividad (solo entregados)
+    const withTime = deliveredPackages.filter(p => p.diferencia_minutos != null);
+    const avgDeliveryTime = withTime.length
+      ? +(withTime.reduce((s,p)=>s + Number(p.diferencia_minutos||0), 0) / withTime.length).toFixed(1)
+      : 0;
+
+    const withEff = deliveredPackages.filter(p => p.efectividad != null);
+    const avgEffectiveness = withEff.length
+      ? +(withEff.reduce((s,p)=>s + Number(p.efectividad||0), 0) / withEff.length).toFixed(1)
+      : 0;
+
+    // Tendencia diaria en una sola query (entre start..end)
+    const { rows: trend } = await pool.query(
+      `
+      WITH days AS (
+        SELECT d::date AS dia
+        FROM generate_series($1::date, $2::date, interval '1 day') AS g(d)
+      )
+      SELECT
+        to_char(d.dia, 'YYYY-MM-DD') AS date,
+        to_char(d.dia, 'Dy', 'lc=es_MX') AS day,
+        COALESCE(cnt.total, 0)::int       AS packages,
+        COALESCE(cnt.delivered, 0)::int   AS delivered,
+        CASE WHEN COALESCE(cnt.total,0) > 0
+             THEN round(cnt.delivered * 100.0 / cnt.total, 1)
+             ELSE 0 END                   AS deliveryRate
+      FROM days d
+      LEFT JOIN (
+        SELECT
+          DATE(fecha_creacion) AS f,
+          COUNT(*)                       AS total,
+          COUNT(*) FILTER (WHERE status='delivered') AS delivered
+        FROM packages
+        WHERE fecha_creacion >= $1::date
+          AND fecha_creacion <  ($2::date + INTERVAL '1 day')
+        GROUP BY 1
+      ) cnt ON cnt.f = d.dia
+      ORDER BY d.dia;
+      `,
+      params
+    );
+
+    // Distribución por estado en el rango
+    const { rows: statusRows } = await pool.query(
+      `
+      SELECT status, COUNT(*)::int AS c
+      FROM packages
+      WHERE fecha_creacion >= $1::date
+        AND fecha_creacion <  ($2::date + INTERVAL '1 day')
+        AND status != 'cancelled'
+      GROUP BY status
+      `,
+      params
+    );
+    const statusDistribution = { pending:0, assigned:0, in_transit:0, delivered:0, cancelled:0 };
+    statusRows.forEach(r => { statusDistribution[r.status] = r.c; });
+
+    res.json({
+      success: true,
+      data: {
+        period: { startDate: start, endDate: end },
+        summary: {
+          totalPackages,
+          deliveredPackages: deliveredPackages.length,
+          deliveryRate,
+          avgDeliveryTime,
+          avgEffectiveness
+        },
+        trends: { daily: trend },
+        distributions: { status: statusDistribution }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error generando dashboard de reportes:', error);
+    res.status(500).json({ success:false, message:'Error generando dashboard de reportes' });
+  }
+});
+
+
+/*router.get('/dashboard', async (req, res) => {
     try {
         // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
@@ -129,10 +237,80 @@ router.get('/dashboard', async (req, res) => {
             message: 'Error generando dashboard de reportes'
         });
     }
-});
+});*/
 
 // GET /api/reports/detailed-tracking - Reporte detallado de seguimiento
 router.get('/detailed-tracking', async (req, res) => {
+  try {
+    await pool.query("SET TIME ZONE 'America/Monterrey'");
+    const { fechaInicio, fechaFin, ruta, estado } = req.query;
+
+    const params = [];
+    let i = 1;
+    let query = `
+      SELECT p.*,
+             r.nombre AS route_name,
+             -- horas locales (texto HH:MI AM/PM) sin restas manuales
+             CASE WHEN p.tiempo_salida_reparto IS NOT NULL
+                  THEN to_char(p.tiempo_salida_reparto AT TIME ZONE 'America/Monterrey', 'HH12:MI a.m.')
+                  ELSE '-' END AS salida_local,
+             CASE WHEN p.tiempo_entrega IS NOT NULL
+                  THEN to_char(p.tiempo_entrega AT TIME ZONE 'America/Monterrey', 'HH12:MI a.m.')
+                  ELSE '-' END AS entrega_local
+      FROM packages p
+      LEFT JOIN routes r ON p.ruta = r.id
+      WHERE p.status != 'cancelled'
+    `;
+
+    if (fechaInicio && fechaFin) {
+      query += ` AND p.fecha_creacion >= $${i}::date AND p.fecha_creacion < ($${i+1}::date + INTERVAL '1 day')`;
+      params.push(fechaInicio, fechaFin);
+      i += 2;
+    }
+    if (ruta)   { query += ` AND p.ruta = $${i++}`;   params.push(ruta); }
+    if (estado) { query += ` AND p.status = $${i++}`; params.push(estado); }
+
+    const { rows } = await pool.query(query, params);
+
+    const detailedReport = rows.map(pkg => {
+      const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
+      const pesoFinal   = pkg.peso_entrega || 0;
+      const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
+
+      let totalMinutos = 0;
+      if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
+        totalMinutos = Math.round((new Date(pkg.tiempo_entrega) - new Date(pkg.tiempo_salida_reparto)) / 60000);
+      }
+
+      return {
+        id: pkg.id,
+        trackingNumber: pkg.tracking_number,
+        cliente: pkg.cliente,
+        ruta: pkg.route_name || 'N/A',
+        tiempoSalidaReparto: pkg.salida_local || '-',
+        tiempoEntrega: pkg.entrega_local || '-',
+        totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
+        diferenciaMinutos: totalMinutos,
+        pesoSalida: pesoInicial,
+        pesoEntrega: pesoFinal,
+        diferenciaPeso,
+        efectividad: pkg.efectividad || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: { filters: { fechaInicio, fechaFin, ruta, estado }, records: detailedReport }
+    });
+
+  } catch (error) {
+    console.error('Error generando reporte detallado:', error);
+    res.status(500).json({ success:false, message:'Error generando reporte detallado' });
+  }
+});
+
+
+/*router.get('/detailed-tracking', async (req, res) => {
     try {
         // CRÍTICO: Configurar zona horaria de Monterrey
         await pool.query("SET timezone = 'America/Monterrey'");
@@ -234,7 +412,7 @@ router.get('/detailed-tracking', async (req, res) => {
             message: 'Error generando reporte detallado'
         });
     }
-});
+});*/
 
 // GET /api/reports/route-performance - Rendimiento por ruta
 router.get('/route-performance', async (req, res) => {

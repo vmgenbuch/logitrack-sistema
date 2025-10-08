@@ -298,6 +298,46 @@ async function cargarDashboard() {
 }*/
 
 async function cargarDashboardConFiltros() {
+  try {
+    const token = localStorage.getItem('token');
+    const start = document.getElementById('dashboardStartDate')?.value;
+    const end   = document.getElementById('dashboardEndDate')?.value;
+
+    const qs = new URLSearchParams();
+    if (start) qs.append('startDate', start);
+    if (end)   qs.append('endDate', end);
+
+    const prev = calcularPeriodoAnterior(start, end);
+    const qsp = new URLSearchParams();
+    qsp.append('startDate', prev.start);
+    qsp.append('endDate', prev.end);
+
+    const [respNow, respPrev] = await Promise.all([
+      fetch(`/api/reports/dashboard?${qs}`,  { headers: { 'Authorization': `Bearer ${token}` } }),
+      fetch(`/api/reports/dashboard?${qsp}`, { headers: { 'Authorization': `Bearer ${token}` } })
+    ]);
+    if (!respNow.ok) throw new Error(`Error HTTP: ${respNow.status}`);
+    if (!respPrev.ok) throw new Error(`Error HTTP: ${respPrev.status}`);
+
+    const [dataNow, dataPrev] = await Promise.all([respNow.json(), respPrev.json()]);
+
+    // KPIs ya existentes
+    datosGlobales = dataNow;
+    actualizarDashboard();
+
+    // Resumen (nuevo)
+    const metricsNow  = calcularMetricas(dataNow);
+    const metricsPrev = calcularMetricas(dataPrev);
+    renderResumen(metricsNow, metricsPrev);
+
+    mostrarExito('Dashboard actualizado con los filtros seleccionados');
+  } catch (error) {
+    console.error('❌ Error cargando dashboard filtrado:', error);
+    mostrarError('No se pudo cargar el dashboard con los filtros');
+  }
+}
+
+/*async function cargarDashboardConFiltros() {
     try {
         const token = localStorage.getItem('token');
         const start = document.getElementById('dashboardStartDate')?.value;
@@ -327,7 +367,7 @@ async function cargarDashboardConFiltros() {
         console.error('❌ Error cargando dashboard filtrado:', error);
         mostrarError('No se pudo cargar el dashboard con los filtros');
     }
-}
+}*/
 
 function actualizarDashboard() {
     if (!datosGlobales) return;
@@ -466,6 +506,83 @@ function crearGraficoEstados(datos) {
         }
     });
 }
+
+// ====== MÉTRICAS AVANZADAS + RESUMEN (DASHBOARD) ======
+
+function calcularPeriodoAnterior(start, end){
+  const today = new Date().toISOString().split('T')[0];
+  const s = start || today;
+  const e = end   || today;
+  const sD = new Date(s + 'T00:00:00');
+  const eD = new Date(e + 'T00:00:00');
+  const days = Math.max(1, Math.round((eD - sD)/86400000)+1);
+  const prevEnd = new Date(sD.getTime() - 86400000);
+  const prevStart = new Date(prevEnd.getTime() - (days-1)*86400000);
+  const iso = d => d.toISOString().split('T')[0];
+  return { start: iso(prevStart), end: iso(prevEnd) };
+}
+
+function calcularMetricas(payload){
+  const list = payload?.packages || payload?.data?.packages || payload?.data || payload || [];
+  const items = Array.isArray(list) ? list : [];
+  let total = items.length, delivered = 0, incidents = 0, onTime = 0, totalDelayMin = 0;
+
+  for (const p of items){
+    const status = (p.status || p.estado || '').toLowerCase();
+    const hasIncident = !!(p.incidencia || p.incident || p.issue);
+    const slaMin = p.slaMinutes ?? p.sla_min ?? 0;
+    const startedAt = new Date(p.tiempo_salida_reparto || p.startedAt || p.assigned_at || p.created_at || 0);
+    const deliveredAt = new Date(p.tiempo_entrega || p.deliveredAt || p.delivered_at || 0);
+
+    if (status === 'entregado' || status === 'delivered') delivered++;
+    if (hasIncident) incidents++;
+
+    if (deliveredAt.getTime() && startedAt.getTime() && slaMin){
+      const minutes = (deliveredAt - startedAt) / 60000;
+      if (minutes <= slaMin) onTime++;
+      totalDelayMin += Math.max(0, minutes - slaMin);
+    }
+  }
+
+  const successRate = total ? (delivered/total)*100 : 0;
+  const incidentRate = total ? (incidents/total)*100 : 0;
+  const onTimeRate = delivered ? (onTime/delivered)*100 : 0;
+  const avgDelay = (delivered && totalDelayMin) ? (totalDelayMin/delivered) : 0;
+
+  return { total, delivered, successRate, incidentRate, onTimeRate, avgDelayMin: avgDelay };
+}
+
+function renderResumen(now, prev){
+  const t = document.getElementById('exec-summary-text');
+  if (!t) return;
+  const delta = (a,b) => (b === 0 ? 0 : ((a-b)/b)*100);
+  const dDeliver = Math.round(delta(now.delivered, prev.delivered));
+  const dSuccess = Math.round(delta(now.successRate, prev.successRate));
+  const dOnTime  = Math.round(delta(now.onTimeRate,  prev.onTimeRate));
+  const dDelay   = Math.round(((now.avgDelayMin - prev.avgDelayMin) / (prev.avgDelayMin || 1)) * 100);
+
+  t.innerHTML = `
+    <strong>Resumen:</strong>
+    ${now.total} paquetes; entregados <strong>${now.delivered}</strong>
+    (éxito <strong>${pct(now.successRate)}</strong>, a tiempo <strong>${pct(now.onTimeRate)}</strong>).
+    ${badgeDelta('Entregas', dDeliver)}
+    ${badgeDelta('Éxito', dSuccess)}
+    ${badgeDelta('A tiempo', dOnTime)}
+    ${badgeDelta('Retraso prom.', -dDelay, true)}
+  `;
+}
+
+function badgeDelta(lbl, v, invert=false){
+  const up = v > 0;
+  const good = invert ? !up : up; // si invert=true, bajar es bueno
+  const color = good ? '#38a169' : '#e53e3e';
+  const sign = v>0?'+':'';
+  return `<span style="margin-left:8px;padding:2px 6px;border-radius:10px;background:${color}22;color:${color};font-size:12px;">
+    ${lbl}: ${sign}${v}%
+  </span>`;
+}
+
+function pct(n){ return (isFinite(n)? n:0).toFixed(0) + '%'; }
 
 // ============================================
 // SEGUIMIENTO DETALLADO

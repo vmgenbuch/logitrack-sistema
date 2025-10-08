@@ -7,6 +7,15 @@
     <title>Sistema de Reportes LogiTrack</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        .kpi-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:12px}
+        .kpi-title{font-size:12px;opacity:.8}
+        .kpi-value{font-size:22px;font-weight:700;margin-top:4px}
+        .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:12px}
+        .table-sm{width:100%;border-collapse:separate;border-spacing:0 6px}
+        .table-sm td,.table-sm th{padding:6px 8px}
+        .table-sm tr{background:rgba(255,255,255,.04)}
+
+
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -361,21 +370,63 @@
         </div>
 
         <!-- Dashboard General -->
-        
-
         <div id="dashboard" class="tab-content active">
-            <!-- 🔹 NUEVO BLOQUE: FILTRO DE FECHA -->
-            <div class="filters">
-              <div class="filter-group">
-                <label>Desde:</label>
-                <input type="date" id="dashboardStartDate">
-              </div>
-              <div class="filter-group">
-                <label>Hasta:</label>
-                <input type="date" id="dashboardEndDate">
-              </div>
-              <button class="btn" id="btnFiltrarDashboard">Filtrar</button>
-              <button class="btn" id="btnHoyDashboard">Hoy</button>
+            <!-- Filtro -->
+<div class="filters mb-3" id="dashboard-date-filter" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+  <div class="filter-group">
+    <label for="dashboardStartDate">Desde:</label>
+    <input type="date" id="dashboardStartDate">
+  </div>
+  <div class="filter-group">
+    <label for="dashboardEndDate">Hasta:</label>
+    <input type="date" id="dashboardEndDate">
+  </div>
+  <button class="btn" id="btnFiltrarDashboard">Filtrar</button>
+  <button class="btn" id="btnHoyDashboard">Hoy</button>
+</div>
+
+<!-- Resumen ejecutivo -->
+<div id="exec-summary" class="card" style="padding:14px;border-radius:12px;margin-bottom:14px;">
+  <div id="exec-summary-text" style="font-size:14px;line-height:1.5;">
+    Cargando resumen...
+  </div>
+</div>
+
+<!-- KPIs mejorados -->
+<div class="metrics-grid" id="metricas-avanzadas" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px;">
+  <div class="kpi-card"><div class="kpi-title">Total de Paquetes</div><div class="kpi-value" id="kpiTotal">0</div></div>
+  <div class="kpi-card"><div class="kpi-title">Entregados</div><div class="kpi-value" id="kpiDelivered">0</div></div>
+  <div class="kpi-card"><div class="kpi-title">% Éxito</div><div class="kpi-value" id="kpiSuccessRate">0%</div></div>
+  <div class="kpi-card"><div class="kpi-title">% A Tiempo</div><div class="kpi-value" id="kpiOnTimeRate">0%</div></div>
+  <div class="kpi-card"><div class="kpi-title">Retraso Prom.</div><div class="kpi-value" id="kpiAvgDelay">0 min</div></div>
+  <div class="kpi-card"><div class="kpi-title">% Incidencia</div><div class="kpi-value" id="kpiIncidentRate">0%</div></div>
+</div>
+
+<!-- Top listas (opcionales) -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+  <div class="card">
+    <h4>Top 5 Rutas por Entregas</h4>
+    <table id="topRoutesTable" class="table-sm"></table>
+  </div>
+  <div class="card">
+    <h4>Top 5 Choferes por Entregas</h4>
+    <table id="topDriversTable" class="table-sm"></table>
+  </div>
+</div>
+
+            
+            <!--
+            <div class="filters mb-3" id="dashboard-date-filter" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+               <div class="filter-group">
+                  <label for="dashboardStartDate">Desde:</label>
+                  <input type="date" id="dashboardStartDate" />
+               </div>
+               <div class="filter-group">
+                  <label for="dashboardEndDate">Hasta:</label>
+                  <input type="date" id="dashboardEndDate" />
+               </div>
+               <button class="btn" id="btnFiltrarDashboard">Filtrar</button>
+               <button class="btn" id="btnHoyDashboard">Hoy</button>
             </div>
 
             <div class="metrics-grid" id="metricas-principales">
@@ -409,7 +460,7 @@
                     <div class="metric-value" id="efectividadPromedio">100%</div>
                     <div class="metric-label">Efectividad Promedio</div>
                 </div>
-            </div>
+            </div>-->
 
             <div class="chart-grid">
                 <div class="chart-card">
