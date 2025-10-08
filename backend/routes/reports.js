@@ -10,77 +10,79 @@ router.use(authenticateToken);
 router.use(authorizeRoles('admin', 'logistics'));
 
 // GET /api/reports/dashboard - Dashboard principal de reportes
+// GET /api/reports/dashboard - Robusto: sin columnas opcionales
 router.get('/dashboard', async (req, res) => {
   try {
     await pool.query("SET TIME ZONE 'America/Monterrey'");
 
-    // Lee filtros (yyyy-MM-dd). Si no vienen, usa hoy.
+    // Filtros (YYYY-MM-DD). Si no vienen, usa hoy.
     const { startDate, endDate } = req.query;
     const { rows: [{ today }] } = await pool.query("SELECT CURRENT_DATE::text AS today");
     const start = startDate || today;
     const end   = endDate   || today;
 
-    // Rango local [start, end+1) en zona Monterrey (sin problemas de UTC/horario de verano)
     const params = [start, end];
 
-    // Paquetes del rango, excluyendo cancelados
-    const { rows: pkgRows } = await pool.query(
+    // 1) RESUMEN con agregados en SQL (sin usar columnas que quizá no existen)
+    const { rows: [sum] } = await pool.query(
       `
-      SELECT *
-      FROM packages
-      WHERE status != 'cancelled'
-        AND fecha_creacion >= $1::date
-        AND fecha_creacion <  ($2::date + INTERVAL '1 day')
-      `, params
+      WITH rango AS (
+        SELECT $1::date AS ini, ($2::date + INTERVAL '1 day') AS fin
+      ),
+      base AS (
+        SELECT p.*
+        FROM packages p, rango r
+        WHERE p.status != 'cancelled'
+          AND p.fecha_creacion >= r.ini
+          AND p.fecha_creacion <  r.fin
+      )
+      SELECT
+        COUNT(*)::int                                           AS total_packages,
+        COUNT(*) FILTER (WHERE status = 'delivered')::int       AS delivered_packages,
+        CASE WHEN COUNT(*) > 0
+             THEN ROUND( (COUNT(*) FILTER (WHERE status='delivered')) * 100.0 / COUNT(*), 1)
+             ELSE 0 END                                         AS delivery_rate,
+        -- tiempo promedio (min) entre salida y entrega, SOLO entregados con ambas fechas
+        COALESCE( ROUND( AVG(
+          EXTRACT(EPOCH FROM (tiempo_entrega - tiempo_salida_reparto))
+        ) FILTER (WHERE status='delivered' AND tiempo_entrega IS NOT NULL AND tiempo_salida_reparto IS NOT NULL) / 60.0 , 1), 0) AS avg_delivery_time
+      FROM base;
+      `,
+      params
     );
 
-    const totalPackages = pkgRows.length;
-    const deliveredPackages = pkgRows.filter(p => p.status === 'delivered');
-    const deliveryRate = totalPackages ? +(deliveredPackages.length * 100 / totalPackages).toFixed(1) : 0;
-
-    // Tiempo promedio y efectividad (solo entregados)
-    const withTime = deliveredPackages.filter(p => p.diferencia_minutos != null);
-    const avgDeliveryTime = withTime.length
-      ? +(withTime.reduce((s,p)=>s + Number(p.diferencia_minutos||0), 0) / withTime.length).toFixed(1)
-      : 0;
-
-    const withEff = deliveredPackages.filter(p => p.efectividad != null);
-    const avgEffectiveness = withEff.length
-      ? +(withEff.reduce((s,p)=>s + Number(p.efectividad||0), 0) / withEff.length).toFixed(1)
-      : 0;
-
-    // Tendencia diaria en una sola query (entre start..end)
+    // 2) TENDENCIA diaria entre start..end (una sola consulta)
     const { rows: trend } = await pool.query(
       `
       WITH days AS (
         SELECT d::date AS dia
         FROM generate_series($1::date, $2::date, interval '1 day') AS g(d)
+      ),
+      conteo AS (
+        SELECT
+          DATE(p.fecha_creacion) AS f,
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE p.status='delivered')::int AS delivered
+        FROM packages p
+        WHERE p.fecha_creacion >= $1::date
+          AND p.fecha_creacion <  ($2::date + INTERVAL '1 day')
+        GROUP BY 1
       )
       SELECT
         to_char(d.dia, 'YYYY-MM-DD') AS date,
-        to_char(d.dia, 'Dy', 'lc=es_MX') AS day,
-        COALESCE(cnt.total, 0)::int       AS packages,
-        COALESCE(cnt.delivered, 0)::int   AS delivered,
-        CASE WHEN COALESCE(cnt.total,0) > 0
-             THEN round(cnt.delivered * 100.0 / cnt.total, 1)
-             ELSE 0 END                   AS deliveryRate
+        COALESCE(c.total, 0)    AS packages,
+        COALESCE(c.delivered,0) AS delivered,
+        CASE WHEN COALESCE(c.total,0) > 0
+             THEN ROUND(c.delivered * 100.0 / c.total, 1)
+             ELSE 0 END          AS deliveryRate
       FROM days d
-      LEFT JOIN (
-        SELECT
-          DATE(fecha_creacion) AS f,
-          COUNT(*)                       AS total,
-          COUNT(*) FILTER (WHERE status='delivered') AS delivered
-        FROM packages
-        WHERE fecha_creacion >= $1::date
-          AND fecha_creacion <  ($2::date + INTERVAL '1 day')
-        GROUP BY 1
-      ) cnt ON cnt.f = d.dia
+      LEFT JOIN conteo c ON c.f = d.dia
       ORDER BY d.dia;
       `,
       params
     );
 
-    // Distribución por estado en el rango
+    // 3) DISTRIBUCIÓN por estado
     const { rows: statusRows } = await pool.query(
       `
       SELECT status, COUNT(*)::int AS c
@@ -100,11 +102,11 @@ router.get('/dashboard', async (req, res) => {
       data: {
         period: { startDate: start, endDate: end },
         summary: {
-          totalPackages,
-          deliveredPackages: deliveredPackages.length,
-          deliveryRate,
-          avgDeliveryTime,
-          avgEffectiveness
+          totalPackages: sum.total_packages,
+          deliveredPackages: sum.delivered_packages,
+          deliveryRate: Number(sum.delivery_rate) || 0,
+          avgDeliveryTime: Number(sum.avg_delivery_time) || 0,
+          // avgEffectiveness lo omitimos por ahora para evitar columnas inexistentes
         },
         trends: { daily: trend },
         distributions: { status: statusDistribution }
@@ -112,10 +114,11 @@ router.get('/dashboard', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error generando dashboard de reportes:', error);
+    console.error('Error en /api/reports/dashboard:', error);
     res.status(500).json({ success:false, message:'Error generando dashboard de reportes' });
   }
 });
+
 
 
 /*router.get('/dashboard', async (req, res) => {
