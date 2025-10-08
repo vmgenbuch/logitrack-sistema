@@ -35,29 +35,25 @@ async function cargarUsuarios() {
     actualizarEstadisticas();
 }
 
-// Cargar sucursales para el select
+// Carga sucursales en el select (ajusta a tu función si ya tienes una)
 async function loadBranchesForSelect() {
-    try {
-        const response = await fetch('/api/public/branches');
-        const data = await response.json();
-        
-        if (data.success) {
-            const select = document.getElementById('userBranch');
-            if (!select) return;
-            
-            select.innerHTML = '<option value="">Seleccionar sucursal...</option>';
-            
-            data.data.branches.forEach(branch => {
-                const option = document.createElement('option');
-                option.value = branch.id;
-                option.textContent = `${branch.nombre} - ${branch.direccion.ciudad}`;
-                option.dataset.name = branch.nombre;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error cargando sucursales:', error);
-    }
+  const select = document.getElementById('userBranch');
+  if (!select) return;
+  // Evita duplicados
+  select.innerHTML = '<option value="">Selecciona una sucursal</option>';
+  const resp = await fetch('/api/branches', {
+    headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+  });
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const branches = data?.data || data?.branches || [];
+  for (const b of branches) {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.nombre || b.name || `Sucursal ${b.id}`;
+    opt.dataset.name = b.nombre || b.name || '';
+    select.appendChild(opt);
+  }
 }
 
 // ============================================
@@ -339,27 +335,24 @@ async function guardarUsuario() {
     }
 }
 
-function editarUsuario(userId) {
-    usuarioEditando = usuariosData.find(u => u.id === userId);
-    if (!usuarioEditando) return;
+async function editarUsuario(userId) {
+  usuarioEditando = usuariosData.find(u => u.id === userId);
+  if (!usuarioEditando) return;
 
-    // Llenar formulario con los IDs correctos del HTML
-    document.getElementById('fullName').value = usuarioEditando.nombre;
-    document.getElementById('email').value = usuarioEditando.email;
-    document.getElementById('phone').value = usuarioEditando.telefono || '';
-    document.getElementById('role').value = usuarioEditando.rol;
-    document.getElementById('password').value = '';
+  // Llenar formulario
+  document.getElementById('fullName').value = usuarioEditando.nombre || '';
+  document.getElementById('email').value = usuarioEditando.email || '';
+  document.getElementById('phone').value = usuarioEditando.telefono || '';
+  document.getElementById('role').value = usuarioEditando.rol || '';
+  document.getElementById('password').value = '';
 
-    // Cambiar título y botón
-    document.getElementById('modalTitle').textContent = 'Editar Usuario';
-
-    // Mostrar modal
-    const modal = document.getElementById('userModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.classList.add('active');
-    }
-}
+  // Cargar sucursales y preseleccionar si el usuario ya tiene una
+  await loadBranchesForSelect();
+  if (usuarioEditando.branchId) {
+    const sel = document.getElementById('userBranch');
+    if (sel) sel.value = String(usuarioEditando.branchId);
+  }
+} 
 
 /*function editarUsuario(userId) {
     usuarioEditando = usuariosData.find(u => u.id === userId);
@@ -425,28 +418,13 @@ function abrirModal() {
     
     // Cargar sucursales
     loadBranchesForSelect();
+
+    // Estado inicial según valor actual del rol
+    toggleBranchFieldForRole(document.getElementById('role')?.value || '');
     
-    // Event listener para mostrar/ocultar campo sucursal según rol
-    const roleSelect = document.getElementById('role');
-    if (roleSelect) {
-        // Remover listeners anteriores si existen
-        const newRoleSelect = roleSelect.cloneNode(true);
-        roleSelect.parentNode.replaceChild(newRoleSelect, roleSelect);
-        
-        newRoleSelect.addEventListener('change', function() {
-            const branchField = document.getElementById('branchFieldGroup');
-            const branchSelect = document.getElementById('userBranch');
-            
-            if (this.value === 'local') {
-                branchField.style.display = 'block';
-                branchSelect.required = true;
-            } else {
-                branchField.style.display = 'none';
-                branchSelect.required = false;
-            }
-        });
-    }
-    
+    // Adjunta listener (sin duplicados)
+    attachRoleChangeListener();
+
     // Configurar para nuevo usuario
     const modalTitle = document.getElementById('modalTitle');
     if (modalTitle) modalTitle.textContent = 'Nuevo Usuario';
@@ -455,6 +433,8 @@ function abrirModal() {
     modal.style.display = 'flex';
     modal.classList.add('active');
 }
+    
+
 
 function cerrarModal() {
     const modal = document.getElementById('userModal');
@@ -467,6 +447,18 @@ function cerrarModal() {
     // Limpiar formulario
     document.getElementById('userForm').reset();
 }
+
+// Handler único para el cambio de rol
+let onRoleChangeHandler = null;
+function attachRoleChangeListener() {
+  const roleEl = document.getElementById('role');
+  if (!roleEl) return;
+  if (onRoleChangeHandler) roleEl.removeEventListener('change', onRoleChangeHandler);
+  onRoleChangeHandler = (e) => toggleBranchFieldForRole(e.target.value);
+  roleEl.addEventListener('change', onRoleChangeHandler);
+}
+
+
 
 // ============================================
 // FUNCIONES DE UTILIDAD
@@ -503,6 +495,50 @@ function mostrarMensaje(mensaje, tipo) {
         }, 300);
     }, 3000);
 }
+
+// ============================================
+// FUNCIONES DE UTILIDAD
+// ============================================
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear elemento de mensaje
+    const mensajeDiv = document.createElement('div');
+    mensajeDiv.className = `message ${tipo}`;
+    mensajeDiv.textContent = mensaje;
+    
+    // Estilos del mensaje
+    mensajeDiv.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 9999;
+    `;
+
+    document.body.appendChild(mensajeDiv);
+
+    setTimeout(() => mensajeDiv.remove(), 3000);
+}
+
+// 👇 Añade aquí la nueva función utilitaria
+function toggleBranchFieldForRole(role) {
+  const group = document.getElementById('branchFieldGroup'); // contenedor del select
+  const select = document.getElementById('userBranch');      // <select> de sucursal
+  if (!group || !select) return;
+  if ((role || '').toLowerCase() === 'local') {
+    group.style.display = 'block';
+    select.required = true;
+  } else {
+    group.style.display = 'none';
+    select.required = false;
+    select.value = '';
+  }
+}
+
 
 function generarUsuariosEjemplo() {
     return [
