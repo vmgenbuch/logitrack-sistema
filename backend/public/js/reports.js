@@ -369,7 +369,65 @@ async function cargarDashboardConFiltros() {
     }
 }*/
 
+// Helper: toma el primer elemento que exista de una lista de IDs
+function pickEl(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
+
+function setText(el, value) {
+  if (el) el.textContent = value;
+}
+
 function actualizarDashboard() {
+  if (!datosGlobales) return;
+
+  // 👀 Ver lo que está llegando realmente
+  console.log('📊 Payload dashboard (datosGlobales):', datosGlobales);
+
+  const summary = datosGlobales.data?.summary || {};
+  const trendsDaily = datosGlobales.data?.trends?.daily || [];
+  const statusDist  = datosGlobales.data?.distributions?.status || {};
+
+  // === KPIs ===
+  const total      = Number(summary.totalPackages || 0);
+  const delivered  = Number(summary.deliveredPackages || 0);
+  const pending    = Math.max(0, total - delivered);
+  const successPct = Number(summary.deliveryRate || 0);
+  const avgTimeMin = Number(summary.avgDeliveryTime || 0);
+  const effPct     = Number(summary.avgEffectiveness || 0);
+
+  // Intentar con varios IDs posibles (los de tu HTML y los del JS actual)
+  setText(pickEl('totalPaquetes', 'totalPackages', 'kpiTotalPaquetes'), total);
+  setText(pickEl('paquetesEntregados', 'deliveredPackages', 'kpiEntregados'), delivered);
+  setText(pickEl('paquetesPendientes', 'pendingPackages', 'kpiPendientes'), pending);
+  setText(pickEl('tasaExito', 'successRate', 'kpiExito'), `${successPct}%`);
+  setText(pickEl('tiempoPromedio', 'avgTime', 'kpiTiempo'), formatearTiempo(avgTimeMin));
+  setText(pickEl('efectividadPromedio', 'avgEffectiveness', 'kpiEfectividad'), `${effPct}%`);
+
+  // === Gráfico de tendencia ===
+  if (Array.isArray(trendsDaily) && trendsDaily.length) {
+    crearGraficoTendencia(trendsDaily);
+  } else {
+    // Si no hay puntos, limpiar gráfico si existía
+    const ctx = document.getElementById('tendenciaChart');
+    if (ctx && chartsInstances.tendencia) {
+      chartsInstances.tendencia.destroy();
+      chartsInstances.tendencia = null;
+    }
+  }
+
+  // === Gráfico de estados ===
+  if (statusDist && typeof statusDist === 'object') {
+    crearGraficoEstados(statusDist);
+  }
+}
+
+
+/*function actualizarDashboard() {
     if (!datosGlobales) return;
     
     // Actualizar métricas principales
@@ -389,7 +447,7 @@ function actualizarDashboard() {
     if (datosGlobales.data?.distributions?.status) {
          crearGraficoEstados(datosGlobales.data.distributions.status);
     }
-}
+}*/
 
 function crearGraficoTendencia(dailyData) {
     const ctx = document.getElementById('tendenciaChart');
