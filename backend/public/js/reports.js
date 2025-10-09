@@ -569,16 +569,30 @@ function calcularPeriodoAnterior(start, end){
 }
 
 function calcularMetricas(payload){
-  const list = payload?.packages || payload?.data?.packages || payload?.data || payload || [];
-  const items = Array.isArray(list) ? list : [];
+  // 1) Si viene el objeto agregado del endpoint /api/reports/dashboard, úsalo
+  const summary = payload?.data?.summary;
+  if (summary) {
+    return {
+      total: summary.totalPackages ?? 0,
+      delivered: summary.deliveredPackages ?? 0,
+      successRate: Number(summary.deliveryRate ?? 0),
+      incidentRate: Number(summary.incidentRate ?? 0),
+      onTimeRate: Number(summary.onTimeRate ?? 0),
+      avgDelayMin: Number(summary.avgDelay ?? 0) || Number(summary.avgDeliveryTime ?? 0) || 0
+    };
+  }
+
+  // 2) Fallback: si alguna vez recibes una lista de paquetes, calcula desde ahí
+  const list   = payload?.packages || payload?.data?.packages || payload?.data || payload || [];
+  const items  = Array.isArray(list) ? list : [];
   let total = items.length, delivered = 0, incidents = 0, onTime = 0, totalDelayMin = 0;
 
   for (const p of items){
     const status = (p.status || p.estado || '').toLowerCase();
     const hasIncident = !!(p.incidencia || p.incident || p.issue);
     const slaMin = p.slaMinutes ?? p.sla_min ?? 0;
-    const startedAt = new Date(p.tiempo_salida_reparto || p.startedAt || p.assigned_at || p.created_at || 0);
-    const deliveredAt = new Date(p.tiempo_entrega || p.deliveredAt || p.delivered_at || 0);
+    const startedAt   = new Date(p.tiempo_salida_reparto || p.startedAt || p.assigned_at || p.created_at || 0);
+    const deliveredAt = new Date(p.tiempo_entrega        || p.deliveredAt || p.delivered_at || 0);
 
     if (status === 'entregado' || status === 'delivered') delivered++;
     if (hasIncident) incidents++;
