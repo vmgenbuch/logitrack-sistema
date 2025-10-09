@@ -874,17 +874,19 @@ async function cargarRutas() {
 }
 
 function adaptarRendimientoRutas(api) {
-  // Soporta {success:true,data:[...]} o array directo
-  const rows = Array.isArray(api) ? api : (api?.data || []);
+  // ✅ esta línea es la clave
+  const rows = Array.isArray(api)
+    ? api
+    : (api?.data?.routes || api?.data || []);
 
   const effectivenessByRoute = rows.map(r => ({
-    name:      r.routeName || r.nombre || r.ruta || 'N/D',
+    name: r.routeName || r.nombre || r.ruta || 'N/D',
     delivered: Number(r.delivered ?? r.entregados ?? r.count ?? 0),
-    success:   Number(r.successRate ?? r.exito ?? 0)   // %
+    success: Number(r.successRate ?? r.exito ?? 0)
   }));
 
   const totalRoutes = effectivenessByRoute.length;
-  const avgSuccess  = totalRoutes
+  const avgSuccess = totalRoutes
     ? effectivenessByRoute.reduce((s, r) => s + (r.success || 0), 0) / totalRoutes
     : 0;
 
@@ -893,12 +895,12 @@ function adaptarRendimientoRutas(api) {
 
   return {
     totalRoutes,
-    avgSuccess,             // %
-    bestRoute,              // {name, success, delivered}
-    effectivenessByRoute,   // [{name, delivered, success}]
-    // weekly: [], drivers: [] // <- si después agregas más series
+    avgSuccess,
+    bestRoute,
+    effectivenessByRoute
   };
 }
+
 
 // =========================
 // 3️⃣ RENDERIZAR KPIs DE RUTAS
