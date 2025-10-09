@@ -660,25 +660,56 @@ function badgeDelta(lbl, v, invert=false){
 function pct(n){ return (isFinite(n)? n:0).toFixed(0) + '%'; }
 
 async function cargarTopRutas(startDate, endDate) {
-  const token = localStorage.getItem('token');
-  const qs = `?startDate=${startDate}&endDate=${endDate}`;
-  const res = await fetch(`/api/reports/route-performance${qs}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const data = await res.json();
-  renderTopRutas(data.data || data);
+  try {
+    const token = localStorage.getItem('token');
+    const qs = `?startDate=${startDate}&endDate=${endDate}`;
+    const res = await fetch(`/api/reports/route-performance${qs}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    renderTopRutas(data.data || data);   // <- usa la versión que te pasé
+
+  } catch (err) {
+    console.error('Top rutas:', err);
+    const cont = document.getElementById('top-routes');
+    if (cont) cont.innerHTML = `<div class="empty">No se pudo cargar el Top de Rutas</div>`;
+  }
 }
 
 function renderTopRutas(rows) {
-  // Soporta varios shapes comunes
+  // Acepta: {routes:[...]} o array directo
   const arr = Array.isArray(rows) ? rows : (rows?.routes || rows?.items || []);
-  const norm = arr.map(r => ({
-    name: r.route || r.ruta || r.name || 'N/D',
-    delivered: Number(r.delivered ?? r.entregados ?? r.count ?? 0),
-    success: Number(r.successRate ?? r.exito ?? 0)
-  }))
+
+  const norm = arr.map(r => {
+    // nombre de la ruta
+    const name =
+      r.routeName ?? r.route ?? r.ruta ?? r.name ?? (r.routeId == null ? 'Sin ruta' : 'N/D');
+
+    // entregados
+    const delivered =
+      r.metrics?.deliveredPackages ??
+      r.delivered ??
+      r.entregados ??
+      r.count ??
+      0;
+
+    // % éxito
+    const success =
+      r.metrics?.deliveryRate ??
+      r.successRate ??
+      r.exito ??
+      0;
+
+    return {
+      name: String(name),
+      delivered: Number(delivered) || 0,
+      success: Number(success) || 0
+    };
+  })
   .sort((a,b) => b.delivered - a.delivered)
-  .slice(0,5);
+  .slice(0, 5);
 
   const cont = document.getElementById('top-routes');
   if (!cont) return;
@@ -690,7 +721,9 @@ function renderTopRutas(rows) {
 
   cont.innerHTML = `
     <table class="mini-table">
-      <thead><tr><th>Ruta</th><th>Entregados</th><th>% Éxito</th></tr></thead>
+      <thead>
+        <tr><th>Ruta</th><th>Entregados</th><th>% Éxito</th></tr>
+      </thead>
       <tbody>
         ${norm.map(r => `
           <tr>

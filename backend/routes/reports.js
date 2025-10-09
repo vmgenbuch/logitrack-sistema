@@ -417,8 +417,73 @@ router.get('/detailed-tracking', async (req, res) => {
     }
 });*/
 
+// routes/reportes.js  (o donde declares /api/reports/route-performance)
+router.get('/route-performance', auth, async (req, res) => {
+  try {
+    // Asegura TZ local
+    await pool.query("SET TIME ZONE 'America/Monterrey'");
+
+    const { startDate, endDate } = req.query;
+    // Defaults a HOY si no llegan filtros
+    const { rows: [{ today }] } = await pool.query(`SELECT CURRENT_DATE::text AS today`);
+    const start = startDate || today;
+    const end   = endDate   || today;
+
+    // Una sola consulta, con LEFT JOIN y agrupando "Sin ruta"
+    const { rows } = await pool.query(
+      `
+      WITH base AS (
+        SELECT
+          COALESCE(r.id::text, '__null__')                 AS route_id,
+          COALESCE(r.nombre, 'Sin ruta')                   AS route_name,
+          p.status,
+          p.diferencia_minutos,
+          p.efectividad,
+          p.peso_salida
+        FROM packages p
+        LEFT JOIN routes r ON r.id = p.ruta
+        WHERE p.fecha_creacion >= $1::date
+          AND p.fecha_creacion <  ($2::date + INTERVAL '1 day')
+          AND p.status <> 'cancelled'
+      )
+      SELECT
+        route_id,
+        route_name,
+        COUNT(*)                                           AS total,
+        COUNT(*) FILTER (WHERE status = 'delivered')       AS delivered,
+        ROUND(AVG(diferencia_minutos)::numeric, 1)         AS avg_delivery_time,
+        ROUND(AVG(efectividad)::numeric, 1)                AS avg_effectiveness,
+        ROUND(AVG(peso_salida)::numeric, 1)                AS avg_weight
+      FROM base
+      GROUP BY route_id, route_name
+      ORDER BY delivered DESC, total DESC
+      LIMIT 5;
+      `,
+      [start, end]
+    );
+
+    const mapped = rows.map(r => ({
+      routeId: r.route_id === '__null__' ? null : r.route_id,
+      routeName: r.route_name,
+      metrics: {
+        totalPackages:       Number(r.total),
+        deliveredPackages:   Number(r.delivered),
+        deliveryRate:        r.total ? Number((r.delivered * 100 / r.total).toFixed(1)) : 0,
+        avgDeliveryTime:     Number(r.avg_delivery_time ?? 0),
+        avgEffectiveness:    Number(r.avg_effectiveness ?? 0),
+        avgWeight:           Number(r.avg_weight ?? 0),
+      }
+    }));
+
+    res.json({ success: true, data: { routes: mapped } });
+  } catch (error) {
+    console.error('Error generando reporte de rendimiento:', error);
+    res.status(500).json({ success: false, message: 'Error generando reporte de rendimiento' });
+  }
+});
+
 // GET /api/reports/route-performance - Rendimiento por ruta
-router.get('/route-performance', async (req, res) => {
+/*router.get('/route-performance', async (req, res) => {
     try {
         const routesResult = await pool.query('SELECT * FROM routes');
         
@@ -466,7 +531,7 @@ router.get('/route-performance', async (req, res) => {
             message: 'Error generando reporte de rendimiento'
         });
     }
-});
+});*/
 
 // GET /api/reports/incidents - Análisis de incidencias
 router.get('/incidents', async (req, res) => {
