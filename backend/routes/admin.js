@@ -24,7 +24,93 @@ const normalizeUser = (user) => {
 };
 
 // GET /api/admin/dashboard - Dashboard principal
+// GET /api/admin/dashboard
 router.get('/dashboard', async (req, res) => {
+  try {
+    // Asegura zona local en la sesión
+    await pool.query("SET TIME ZONE 'America/Monterrey'");
+
+    // Fechas locales (hoy)
+    const { rows: [{ today }] } = await pool.query("SELECT CURRENT_DATE::date AS today");
+    const start = today; // YYYY-MM-DD (local)
+    const end = today;
+
+    // Totales globales (como ya tenías)
+    const [ usersCount, packagesCount, routesCount, incidentsCount ] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM users WHERE active = true"),
+      pool.query("SELECT COUNT(*) FROM packages"),
+      pool.query("SELECT COUNT(*) FROM routes WHERE status = 'active'"),
+      pool.query("SELECT COUNT(*) FROM incidents")
+    ]);
+
+    const [ packagesInTransit, packagesDelivered, packagesPending, openIncidents ] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM packages WHERE status = 'in_transit'"),
+      pool.query("SELECT COUNT(*) FROM packages WHERE status = 'delivered'"),
+      pool.query("SELECT COUNT(*) FROM packages WHERE status = 'pending'"),
+      pool.query("SELECT COUNT(*) FROM incidents WHERE status = 'pending'")
+    ]);
+
+    // ---- KPIs HOY (fecha de ENTREGA y de SALIDA en día local) ----
+    const params = [start, end];
+
+    // Entregados hoy por tiempo_entrega (día local)
+    const deliveredTodayQ = await pool.query(`
+      SELECT COUNT(*)::int AS c
+      FROM packages
+      WHERE status = 'delivered'
+        AND tiempo_entrega IS NOT NULL
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') >= $1::date
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
+    `, params);
+
+    // Salieron hoy a ruta (en tránsito/asignados) por tiempo_salida_reparto (día local)
+    const inTransitTodayQ = await pool.query(`
+      SELECT COUNT(*)::int AS c
+      FROM packages
+      WHERE status IN ('in_transit','assigned')
+        AND tiempo_salida_reparto IS NOT NULL
+        AND (tiempo_salida_reparto AT TIME ZONE 'America/Monterrey') >= $1::date
+        AND (tiempo_salida_reparto AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
+    `, params);
+
+    // Creados hoy (si te interesa verlo)
+    const createdTodayQ = await pool.query(`
+      SELECT COUNT(*)::int AS c
+      FROM packages
+      WHERE (fecha_creacion AT TIME ZONE 'America/Monterrey') >= $1::date
+        AND (fecha_creacion AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
+    `, params);
+
+    const dashboardData = {
+      summary: {
+        // Totales (igual que antes)
+        totalUsers:        parseInt(usersCount.rows[0].count),
+        activeUsers:       parseInt(usersCount.rows[0].count),
+        totalPackages:     parseInt(packagesCount.rows[0].count),
+        packagesInTransit: parseInt(packagesInTransit.rows[0].count),
+        packagesDelivered: parseInt(packagesDelivered.rows[0].count),
+        packagesPending:   parseInt(packagesPending.rows[0].count),
+        activeRoutes:      parseInt(routesCount.rows[0].count),
+        totalIncidents:    parseInt(incidentsCount.rows[0].count),
+        openIncidents:     parseInt(openIncidents.rows[0].count),
+
+        // NUEVOS KPIs del día local
+        createdToday:      createdTodayQ.rows[0].c,
+        deliveredToday:    deliveredTodayQ.rows[0].c,
+        inTransitToday:    inTransitTodayQ.rows[0].c,
+        period: { startDate: start, endDate: end }
+      }
+    };
+
+    res.json({ success: true, data: dashboardData });
+  } catch (error) {
+    console.error('Error en dashboard:', error);
+    res.status(500).json({ success: false, message: 'Error obteniendo datos del dashboard' });
+  }
+});
+
+
+/*router.get('/dashboard', async (req, res) => {
     try {
         // Consultas agregadas
         const usersCount = await pool.query('SELECT COUNT(*) FROM users WHERE active = true');
@@ -62,7 +148,7 @@ router.get('/dashboard', async (req, res) => {
             message: 'Error obteniendo datos del dashboard'
         });
     }
-});
+});*/
 
 // GET /api/admin/users - Listar usuarios
 router.get('/users', async (req, res) => {

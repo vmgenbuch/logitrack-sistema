@@ -9,113 +9,113 @@ const router = express.Router();
 router.use(authenticateToken);
 router.use(authorizeRoles('admin', 'logistics'));
 
-// GET /api/reports/dashboard - Dashboard principal de reportes
 // GET /api/reports/dashboard - Robusto: sin columnas opcionales
 router.get('/dashboard', async (req, res) => {
   try {
+    // Asegura zona horaria local
     await pool.query("SET TIME ZONE 'America/Monterrey'");
 
-    // Filtros (YYYY-MM-DD). Si no vienen, usa hoy.
-    const { startDate, endDate } = req.query;
+    // Determinar rango (si no hay query params, usa hoy local)
     const { rows: [{ today }] } = await pool.query("SELECT CURRENT_DATE::text AS today");
-    const start = startDate || today;
-    const end   = endDate   || today;
-
+    const start = req.query.startDate || today;
+    const end   = req.query.endDate   || today;
     const params = [start, end];
 
-    // 1) RESUMEN con agregados en SQL (sin usar columnas que quizá no existen)
-    const { rows: [sum] } = await pool.query(
-      `
-      WITH rango AS (
-        SELECT $1::date AS ini, ($2::date + INTERVAL '1 day') AS fin
-      ),
-      base AS (
-        SELECT p.*
-        FROM packages p, rango r
-        WHERE p.status != 'cancelled'
-          AND p.fecha_creacion >= r.ini
-          AND p.fecha_creacion <  r.fin
-      )
-      SELECT
-        COUNT(*)::int                                           AS total_packages,
-        COUNT(*) FILTER (WHERE status = 'delivered')::int       AS delivered_packages,
-        CASE WHEN COUNT(*) > 0
-             THEN ROUND( (COUNT(*) FILTER (WHERE status='delivered')) * 100.0 / COUNT(*), 1)
-             ELSE 0 END                                         AS delivery_rate,
-        -- tiempo promedio (min) entre salida y entrega, SOLO entregados con ambas fechas
-        COALESCE( ROUND( AVG(
-          EXTRACT(EPOCH FROM (tiempo_entrega - tiempo_salida_reparto))
-        ) FILTER (WHERE status='delivered' AND tiempo_entrega IS NOT NULL AND tiempo_salida_reparto IS NOT NULL) / 60.0 , 1), 0) AS avg_delivery_time
-      FROM base;
-      `,
-      params
-    );
+    // === CONSULTA PRINCIPAL ===
+    // Paquetes entregados o activos dentro del rango local (día de tiempo_entrega)
+    const { rows: pkgs } = await pool.query(`
+      SELECT *
+      FROM packages
+      WHERE status != 'cancelled'
+        AND tiempo_entrega IS NOT NULL
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') >= $1::date
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
+    `, params);
 
-    // 2) TENDENCIA diaria entre start..end (una sola consulta)
-    const { rows: trend } = await pool.query(
-      `
+    // === MÉTRICAS ===
+    const totalPackages = pkgs.length;
+    const deliveredPackages = pkgs.filter(p => (p.status || '').toLowerCase() === 'delivered').length;
+    const deliveryRate = totalPackages ? +(deliveredPackages * 100 / totalPackages).toFixed(1) : 0;
+
+    // Tiempo promedio de entrega (minutos)
+    const deliveredWithTimes = pkgs.filter(
+      p => p.tiempo_salida_reparto && p.tiempo_entrega && (p.status || '').toLowerCase() === 'delivered'
+    );
+    const avgDeliveryTime = deliveredWithTimes.length
+      ? +(
+          deliveredWithTimes.reduce((sum, p) => {
+            const salida = new Date(p.tiempo_salida_reparto);
+            const entrega = new Date(p.tiempo_entrega);
+            return sum + (entrega - salida) / 60000;
+          }, 0) / deliveredWithTimes.length
+        ).toFixed(1)
+      : 0;
+
+    // Efectividad promedio
+    const withEff = pkgs.filter(p => p.efectividad != null);
+    const avgEffectiveness = withEff.length
+      ? +(withEff.reduce((s,p)=>s + Number(p.efectividad||0), 0) / withEff.length).toFixed(1)
+      : 0;
+
+    // === TENDENCIA DIARIA ===
+    const { rows: trend } = await pool.query(`
       WITH days AS (
         SELECT d::date AS dia
-        FROM generate_series($1::date, $2::date, interval '1 day') AS g(d)
+        FROM generate_series($1::date, $2::date, interval '1 day') g(d)
       ),
-      conteo AS (
+      cnt AS (
         SELECT
-          DATE(p.fecha_creacion) AS f,
+          DATE(tiempo_entrega AT TIME ZONE 'America/Monterrey') AS f,
           COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE p.status='delivered')::int AS delivered
-        FROM packages p
-        WHERE p.fecha_creacion >= $1::date
-          AND p.fecha_creacion <  ($2::date + INTERVAL '1 day')
+          COUNT(*) FILTER (WHERE status='delivered')::int AS delivered
+        FROM packages
+        WHERE tiempo_entrega IS NOT NULL
+          AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') >= $1::date
+          AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
         GROUP BY 1
       )
       SELECT
         to_char(d.dia, 'YYYY-MM-DD') AS date,
-        COALESCE(c.total, 0)    AS packages,
+        COALESCE(c.total,0) AS packages,
         COALESCE(c.delivered,0) AS delivered,
-        CASE WHEN COALESCE(c.total,0) > 0
-             THEN ROUND(c.delivered * 100.0 / c.total, 1)
-             ELSE 0 END          AS deliveryRate
-      FROM days d
-      LEFT JOIN conteo c ON c.f = d.dia
+        CASE WHEN COALESCE(c.total,0)>0 THEN ROUND(c.delivered*100.0/c.total,1) ELSE 0 END AS deliveryRate
+      FROM days d LEFT JOIN cnt c ON c.f=d.dia
       ORDER BY d.dia;
-      `,
-      params
-    );
+    `, params);
 
-    // 3) DISTRIBUCIÓN por estado
-    const { rows: statusRows } = await pool.query(
-      `
-      SELECT status, COUNT(*)::int AS c
+    // === DISTRIBUCIÓN POR ESTADO ===
+    const { rows: statusRows } = await pool.query(`
+      SELECT LOWER(status) AS status, COUNT(*)::int AS c
       FROM packages
-      WHERE fecha_creacion >= $1::date
-        AND fecha_creacion <  ($2::date + INTERVAL '1 day')
-        AND status != 'cancelled'
-      GROUP BY status
-      `,
-      params
-    );
-    const statusDistribution = { pending:0, assigned:0, in_transit:0, delivered:0, cancelled:0 };
-    statusRows.forEach(r => { statusDistribution[r.status] = r.c; });
+      WHERE status != 'cancelled'
+        AND tiempo_entrega IS NOT NULL
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') >= $1::date
+        AND (tiempo_entrega AT TIME ZONE 'America/Monterrey') <  ($2::date + INTERVAL '1 day')
+      GROUP BY 1
+    `, params);
 
+    const status = { pending:0, assigned:0, in_transit:0, delivered:0, cancelled:0 };
+    statusRows.forEach(r => { status[r.status] = r.c; });
+
+    // === RESPUESTA FINAL ===
     res.json({
       success: true,
       data: {
         period: { startDate: start, endDate: end },
         summary: {
-          totalPackages: sum.total_packages,
-          deliveredPackages: sum.delivered_packages,
-          deliveryRate: Number(sum.delivery_rate) || 0,
-          avgDeliveryTime: Number(sum.avg_delivery_time) || 0,
-          // avgEffectiveness lo omitimos por ahora para evitar columnas inexistentes
+          totalPackages,
+          deliveredPackages,
+          deliveryRate,
+          avgDeliveryTime,
+          avgEffectiveness
         },
         trends: { daily: trend },
-        distributions: { status: statusDistribution }
+        distributions: { status }
       }
     });
-
   } catch (error) {
-    console.error('Error en /api/reports/dashboard:', error);
-    res.status(500).json({ success:false, message:'Error generando dashboard de reportes' });
+    console.error('Error generando dashboard de reportes:', error);
+    res.status(500).json({ success: false, message: 'Error generando dashboard de reportes' });
   }
 });
 
