@@ -385,45 +385,33 @@ function setText(el, value) {
 function actualizarDashboard() {
   if (!datosGlobales) return;
 
-  // 👀 Ver lo que está llegando realmente
-  console.log('📊 Payload dashboard (datosGlobales):', datosGlobales);
+  console.log("📊 Payload dashboard (datosGlobales):", datosGlobales);
 
   const summary = datosGlobales.data?.summary || {};
-  const trendsDaily = datosGlobales.data?.trends?.daily || [];
-  const statusDist  = datosGlobales.data?.distributions?.status || {};
 
-  // === KPIs ===
-  const total      = Number(summary.totalPackages || 0);
-  const delivered  = Number(summary.deliveredPackages || 0);
-  const pending    = Math.max(0, total - delivered);
-  const successPct = Number(summary.deliveryRate || 0);
-  const avgTimeMin = Number(summary.avgDeliveryTime || 0);
-  const effPct     = Number(summary.avgEffectiveness || 0);
+  // Actualizar métricas principales
+  const el = (id, valor) => {
+    const nodo = document.getElementById(id);
+    if (nodo) nodo.textContent = valor;
+  };
 
-  // Intentar con varios IDs posibles (los de tu HTML y los del JS actual)
-  setText(pickEl('totalPaquetes', 'totalPackages', 'kpiTotalPaquetes'), total);
-  setText(pickEl('paquetesEntregados', 'deliveredPackages', 'kpiEntregados'), delivered);
-  setText(pickEl('paquetesPendientes', 'pendingPackages', 'kpiPendientes'), pending);
-  setText(pickEl('tasaExito', 'successRate', 'kpiExito'), `${successPct}%`);
-  setText(pickEl('tiempoPromedio', 'avgTime', 'kpiTiempo'), formatearTiempo(avgTimeMin));
-  setText(pickEl('efectividadPromedio', 'avgEffectiveness', 'kpiEfectividad'), `${effPct}%`);
+  el('kpiTotal', summary.totalPackages ?? 0);
+  el('kpiDelivered', summary.deliveredPackages ?? 0);
+  el('kpiSuccessRate', `${summary.deliveryRate ?? 0}%`);
+  el('kpiOnTimeRate', `${summary.onTimeRate ?? 0}%`);
+  el('kpiAvgDelay', summary.avgDelay ? `${summary.avgDelay} min` : '0 min');
+  el('kpiIncidentRate', `${summary.incidentRate ?? 0}%`);
 
-  // === Gráfico de tendencia ===
-  if (Array.isArray(trendsDaily) && trendsDaily.length) {
-    crearGraficoTendencia(trendsDaily);
-  } else {
-    // Si no hay puntos, limpiar gráfico si existía
-    const ctx = document.getElementById('tendenciaChart');
-    if (ctx && chartsInstances.tendencia) {
-      chartsInstances.tendencia.destroy();
-      chartsInstances.tendencia = null;
-    }
+  // Crear gráficos si hay datos
+  if (datosGlobales.data?.trends?.daily) {
+    crearGraficoTendencia(datosGlobales.data.trends.daily);
   }
 
-  // === Gráfico de estados ===
-  if (statusDist && typeof statusDist === 'object') {
-    crearGraficoEstados(statusDist);
+  if (datosGlobales.data?.distributions?.status) {
+    crearGraficoEstados(datosGlobales.data.distributions.status);
   }
+
+  console.log("✅ KPIs actualizados correctamente");
 }
 
 
