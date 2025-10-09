@@ -843,43 +843,107 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
 // RENDIMIENTO DE RUTAS
 // ============================================
 async function cargarRutas() {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/reports/route-performance', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
+  try {
+    const token = localStorage.getItem('token');
+    const resp = await fetch('/api/reports/route-performance', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
 
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
+    const api = await resp.json();
+    console.log('🛣️ Rutas data (raw):', api);
 
-        const datos = await response.json();
-        console.log('🛣️ Rutas data:', datos);
-        
-        // Actualizar métricas de rutas
-        actualizarMetricasRutas(datos);
-        
-        // Crear gráficos
-        if (datos.data?.routes) {
-             crearGraficoEficiencia(datos);
-        }
+    // 1) Adaptar al formato que espera la UI
+    const perf = adaptarRendimientoRutas(api);
+    console.log('🛣️ Rutas data (adaptado):', perf);
 
-        
-        if (datos.data?.routes) {
-             crearGraficoSemanal(datos);
-        }
-        
-        // Actualizar tabla de choferes
-        actualizarTablaChoferes(datos);
-        
-    } catch (error) {
-        console.error('❌ Error cargando rutas:', error);
-        mostrarError('Error al cargar datos de rutas');
+    // 2) KPIs
+    renderKPIsRutas(perf);
+
+    // 3) Gráficas
+    renderChartEfectividadPorRuta(perf);   // barras % éxito por ruta
+    // Si luego agregas semanal: renderChartDistribucionSemanal(perf.weekly || []);
+
+    // 4) Tabla de choferes (si tienes endpoint/estructura):
+    // actualizarTablaChoferes(perf.drivers || []);
+
+  } catch (error) {
+    console.error('❌ Error cargando rutas:', error);
+    mostrarError('Error al cargar datos de rutas');
+  }
+}
+
+function adaptarRendimientoRutas(api) {
+  // Soporta {success:true,data:[...]} o array directo
+  const rows = Array.isArray(api) ? api : (api?.data || []);
+
+  const effectivenessByRoute = rows.map(r => ({
+    name:      r.routeName || r.nombre || r.ruta || 'N/D',
+    delivered: Number(r.delivered ?? r.entregados ?? r.count ?? 0),
+    success:   Number(r.successRate ?? r.exito ?? 0)   // %
+  }));
+
+  const totalRoutes = effectivenessByRoute.length;
+  const avgSuccess  = totalRoutes
+    ? effectivenessByRoute.reduce((s, r) => s + (r.success || 0), 0) / totalRoutes
+    : 0;
+
+  const bestRoute = [...effectivenessByRoute]
+    .sort((a, b) => (b.success - a.success) || (b.delivered - a.delivered))[0] || {name:'N/D', success:0};
+
+  return {
+    totalRoutes,
+    avgSuccess,             // %
+    bestRoute,              // {name, success, delivered}
+    effectivenessByRoute,   // [{name, delivered, success}]
+    // weekly: [], drivers: [] // <- si después agregas más series
+  };
+}
+
+// =========================
+// 3️⃣ RENDERIZAR KPIs DE RUTAS
+// =========================
+function renderKPIsRutas(perf) {
+  const $ = id => document.getElementById(id);
+
+  // Asegúrate que tu HTML tenga estos IDs
+  if ($('kpiRutasTotal')) $('kpiRutasTotal').textContent = perf.totalRoutes || 0;
+  if ($('kpiEficienciaProm')) $('kpiEficienciaProm').textContent = `${(perf.avgSuccess || 0).toFixed(1)}%`;
+  if ($('kpiMejorTasa')) $('kpiMejorTasa').textContent = `${(perf.bestRoute.success || 0).toFixed(0)}%`;
+  if ($('kpiMejorRuta')) $('kpiMejorRuta').textContent = perf.bestRoute.name || 'N/D';
+}
+
+// =========================
+// 4️⃣ GRÁFICO DE EFECTIVIDAD POR RUTA
+// =========================
+let _chartEfectividad;
+function renderChartEfectividadPorRuta(perf) {
+  const canvas = document.getElementById('chartEfectividadPorRuta');
+  if (!canvas) return;
+
+  const data = perf.effectivenessByRoute || [];
+  if (!data.length) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  const labels = data.map(r => r.name);
+  const values = data.map(r => r.success || 0);
+
+  if (_chartEfectividad) _chartEfectividad.destroy();
+  _chartEfectividad = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: '% Éxito', data: values, borderWidth: 1 }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } },
+      plugins: { legend: { display: false } }
     }
+  });
 }
 
 function actualizarMetricasRutas(datos) {
