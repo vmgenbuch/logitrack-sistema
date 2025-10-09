@@ -418,7 +418,7 @@ router.get('/detailed-tracking', async (req, res) => {
 });*/
 
 // routes/reportes.js  (o donde declares /api/reports/route-performance)
-router.get('/route-performance', auth, async (req, res) => {
+router.get('/route-performance', async (req, res) => {
   try {
     // Asegura TZ local
     await pool.query("SET TIME ZONE 'America/Monterrey'");
