@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="js/utils.js"></script>
+    <script defer src="/js/chart.umd.min.js"></script>
     <title>Sistema de Reportes LogiTrack</title>
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -558,63 +559,43 @@
                 </div>
             </div>
         </div>
+        
 
-        <!-- Rendimiento de Rutas -->
-        <div id="rutas" class="tab-content">
-            <div class="metrics-grid" id="metricas-rutas">
-                <!-- Las métricas de rutas se cargarán dinámicamente -->
-            </div>
+        <!-- === Rendimiento de Rutas === -->
+        <div id="tab-rutas" class="tab-panel"> 
+  <div class="cards-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="card">
+      <h3>📊 Efectividad por Ruta</h3>
+      <canvas id="eficienciaRutasChart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <h3>📅 Distribución Semanal</h3>
+      <div id="distribucionSemanalPlaceholder" class="empty">
+        Próximamente
+      </div>
+    </div>
+  </div>
 
-            <div class="chart-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            📊 Efectividad por Ruta
-                        </h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="eficienciaChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            📍 Distribución Semanal
-                        </h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="semanalChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="data-table">
-                <div class="table-header">
-                    <h3>Ranking de Rutas</h3>
-                    <p>Rendimiento basado en eficiencia y tasa de éxito</p>
-                </div>
-                <div class="table-container">
-                    <table id="tablaChoferes">
-                        <thead>
-                            <tr>
-                                <th>Ranking</th>
-                                <th>Chofer</th>
-                                <th>Total Pedidos</th>
-                                <th>Entregados</th>
-                                <th>Tasa Éxito (%)</th>
-                                <th>Tiempo Promedio (hrs)</th>
-                                <th>Peso Total (kg)</th>
-                                <th>Eficiencia</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cuerpoTablaChoferes">
-                            <!-- Los datos se cargarán dinámicamente -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+  <div class="card" style="margin-top:14px;">
+    <h3>🏁 Ranking de Rutas</h3>
+    <div class="table-wrap">
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Ruta</th>
+            <th>Entregados</th>
+            <th>% Éxito</th>
+            <th>Tiempo Prom. (min)</th>
+          </tr>
+        </thead>
+        <tbody id="rankingRutasBody">
+          <tr><td colspan="5" class="empty">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
         <!-- Análisis de Incidencias -->
         <div id="incidencias" class="tab-content">

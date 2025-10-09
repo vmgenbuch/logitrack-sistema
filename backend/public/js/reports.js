@@ -878,62 +878,95 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
 async function cargarRutas() {
   try {
     const token = localStorage.getItem('token');
-    const resp = await fetch('/api/reports/route-performance', {
+    const start = document.getElementById('dashboardStartDate')?.value;
+    const end   = document.getElementById('dashboardEndDate')?.value;
+
+    const qs = new URLSearchParams();
+    if (start) qs.append('startDate', start);
+    if (end)   qs.append('endDate', end);
+
+    const resp = await fetch(`/api/reports/route-performance?${qs.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-    const api = await resp.json();
-    console.log('🛣️ Rutas data (raw):', api);
+    const json = await resp.json();
+    const routes = json?.data?.routes || [];
 
-    // 1) Adaptar al formato que espera la UI
-    const perf = adaptarRendimientoRutas(api);
-    console.log('🛣️ Rutas data (adaptado):', perf);
-
-    // 2) KPIs
-    renderKPIsRutas(perf);
-
-    // 3) Gráficas
-    renderChartEfectividadPorRuta(perf);   // barras % éxito por ruta
-    // Si luego agregas semanal: renderChartDistribucionSemanal(perf.weekly || []);
-
-    // 4) Tabla de choferes (si tienes endpoint/estructura):
-    // actualizarTablaChoferes(perf.drivers || []);
-
+    // Render directo con lo que entrega el backend
+    renderEficienciaRutas(routes);
+    renderRankingRutas(routes);
   } catch (error) {
     console.error('❌ Error cargando rutas:', error);
     mostrarError('Error al cargar datos de rutas');
   }
 }
 
-function adaptarRendimientoRutas(api) {
-  // ✅ esta línea es la clave
-  const rows = Array.isArray(api)
-    ? api
-    : (api?.data?.routes || api?.data || []);
+function renderEficienciaRutas(routes) {
+  const ctx = document.getElementById('eficienciaRutasChart');
+  if (!ctx) return;
 
-  const effectivenessByRoute = rows.map(r => ({
-    name: r.routeName || r.nombre || r.ruta || 'N/D',
-    delivered: Number(r.delivered ?? r.entregados ?? r.count ?? 0),
-    success: Number(r.successRate ?? r.exito ?? 0)
-  }));
+  const labels = routes.map(r => r.routeName || r.route || r.ruta || 'N/D');
+  const data   = routes.map(r => Number(r.metrics?.deliveryRate ?? 0));
 
-  const totalRoutes = effectivenessByRoute.length;
-  const avgSuccess = totalRoutes
-    ? effectivenessByRoute.reduce((s, r) => s + (r.success || 0), 0) / totalRoutes
-    : 0;
+  if (_chartEficienciaRutas) {
+    _chartEficienciaRutas.destroy();
+  }
 
-  const bestRoute = [...effectivenessByRoute]
-    .sort((a, b) => (b.success - a.success) || (b.delivered - a.delivered))[0] || {name:'N/D', success:0};
-
-  return {
-    totalRoutes,
-    avgSuccess,
-    bestRoute,
-    effectivenessByRoute
-  };
+  _chartEficienciaRutas = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '% Éxito',
+        data,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { callback: v => `${v}%` } }
+      },
+      plugins: {
+        tooltip: { callbacks: { label: c => `${c.raw}%` } },
+        legend: { display: false }
+      }
+    }
+  });
 }
 
+function renderRankingRutas(routes) {
+  const tbody = document.getElementById('rankingRutasBody');
+  if (!tbody) return;
+
+  if (!routes.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Sin datos</td></tr>`;
+    return;
+  }
+
+  const ordenadas = [...routes].sort((a, b) => {
+    const da = Number(a.metrics?.deliveredPackages ?? 0);
+    const db = Number(b.metrics?.deliveredPackages ?? 0);
+    return db - da;
+  });
+
+  tbody.innerHTML = ordenadas.map((r, i) => {
+    const delivered = Number(r.metrics?.deliveredPackages ?? 0);
+    const success   = Number(r.metrics?.deliveryRate ?? 0);
+    const avgTime   = Number(r.metrics?.avgDeliveryTime ?? 0);
+    const name      = r.routeName || r.route || r.ruta || 'N/D';
+    return `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${name}</td>
+        <td>${delivered}</td>
+        <td>${success.toFixed(1)}%</td>
+        <td>${avgTime.toFixed(1)}</td>
+      </tr>
+    `;
+  }).join('');
+}
 
 // =========================
 // 3️⃣ RENDERIZAR KPIs DE RUTAS
@@ -1912,11 +1945,36 @@ window.addEventListener('resize', () => {
     });
 });
 
-// Iniciar auto-refresh cuando se carga la página
+function iniciarAutoRefresh() {
+  console.log('⏳ Auto-refresh iniciado (cada 60s)');
+
+  setInterval(() => {
+    // 1️⃣ Actualiza Dashboard General
+    if (typeof cargarDashboardConFiltros === 'function') {
+      console.log('📊 Actualizando Dashboard General...');
+      cargarDashboardConFiltros();
+    }
+
+    // 2️⃣ Solo actualiza Rendimiento de Rutas si el tab está activo
+    const tabRutas = document.getElementById('tab-rutas');
+    const rutasVisible =
+      tabRutas &&
+      (tabRutas.classList.contains('active') ||
+       tabRutas.style.display === 'block' ||
+       tabRutas.offsetParent !== null); // visible en DOM
+
+    if (rutasVisible && typeof cargarRutas === 'function') {
+      console.log('🚚 Actualizando Rendimiento de Rutas...');
+      cargarRutas();
+    }
+  }, 60000); // cada 60 segundos
+}
+
+// Esperar 10 segundos tras cargar página antes de iniciar el auto-refresh
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        iniciarAutoRefresh();
-    }, 10000); // Esperar 10 segundos antes de iniciar auto-refresh
+  setTimeout(() => {
+    iniciarAutoRefresh();
+  }, 10000);
 });
 
 console.log('📊 Sistema de Reportes LogiTrack cargado completamente');
