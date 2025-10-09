@@ -138,6 +138,12 @@
         .metric-icon.time { background: linear-gradient(135deg, #ffecd2, #fcb69f); }
         .metric-icon.efficiency { background: linear-gradient(135deg, #a8edea, #fed6e3); }
 
+        .mini-table-wrap { overflow-x: auto; }
+        .mini-table { width:100%; border-collapse: collapse; font-size: 14px; }
+        .mini-table th, .mini-table td { padding:8px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .mini-table th { text-align:left; opacity: .8; font-weight:600; }
+        .empty { opacity:.7; font-size: 14px; padding: 6px 0; }
+
         .metric-value {
             font-size: 2.5rem;
             font-weight: 700;
@@ -404,13 +410,19 @@
 
 <!-- Top listas (opcionales) -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-  <div class="card">
-    <h4>Top 5 Rutas por Entregas</h4>
-    <table id="topRoutesTable" class="table-sm"></table>
+  <!-- Top 5 Rutas -->
+  <div class="card" style="padding:12px;border-radius:12px;">
+    <div class="card-title" style="font-weight:600;margin-bottom:8px;">Top 5 Rutas por Entregas</div>
+    <div id="top-routes" class="mini-table-wrap">
+       <div class="empty">Cargando...</div>
+    </div>
   </div>
-  <div class="card">
-    <h4>Top 5 Choferes por Entregas</h4>
-    <table id="topDriversTable" class="table-sm"></table>
+  <!-- Top 5 Choferes -->
+  <div class="card" style="padding:12px;border-radius:12px;">
+    <div class="card-title" style="font-weight:600;margin-bottom:8px;">Top 5 Choferes por Entregas</div>
+    <div id="top-drivers" class="mini-table-wrap">
+      <div class="empty">Cargando...</div>
+    </div>
   </div>
 </div>
 

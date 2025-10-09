@@ -330,12 +330,17 @@ async function cargarDashboardConFiltros() {
     const metricsPrev = calcularMetricas(dataPrev);
     renderResumen(metricsNow, metricsPrev);
 
+    await cargarTopRutas(start, end);
+    await cargarTopChoferes(start, end);
+
     mostrarExito('Dashboard actualizado con los filtros seleccionados');
   } catch (error) {
     console.error('❌ Error cargando dashboard filtrado:', error);
     mostrarError('No se pudo cargar el dashboard con los filtros');
   }
 }
+
+
 
 /*async function cargarDashboardConFiltros() {
     try {
@@ -569,20 +574,22 @@ function calcularPeriodoAnterior(start, end){
 }
 
 function calcularMetricas(payload){
-  // 1) Si viene el objeto agregado del endpoint /api/reports/dashboard, úsalo
   const summary = payload?.data?.summary;
   if (summary) {
+    // Si tu backend incluye onTimeRate, úsalo; si no, intenta con avgEffectiveness; si no, 0.
+    const onTime = summary.onTimeRate ?? summary.avgEffectiveness ?? null;
+
     return {
-      total: summary.totalPackages ?? 0,
-      delivered: summary.deliveredPackages ?? 0,
-      successRate: Number(summary.deliveryRate ?? 0),
+      total:        summary.totalPackages ?? 0,
+      delivered:    summary.deliveredPackages ?? 0,
+      successRate:  Number(summary.deliveryRate ?? 0),
       incidentRate: Number(summary.incidentRate ?? 0),
-      onTimeRate: Number(summary.onTimeRate ?? 0),
-      avgDelayMin: Number(summary.avgDelay ?? 0) || Number(summary.avgDeliveryTime ?? 0) || 0
+      onTimeRate:   (onTime === null ? 0 : Number(onTime)), // si prefieres N/A, cámbialo al pintar
+      avgDelayMin:  Number(summary.avgDelay ?? summary.avgDeliveryTime ?? 0)
     };
   }
 
-  // 2) Fallback: si alguna vez recibes una lista de paquetes, calcula desde ahí
+  // Fallback por si alguna vez mandas lista de paquetes
   const list   = payload?.packages || payload?.data?.packages || payload?.data || payload || [];
   const items  = Array.isArray(list) ? list : [];
   let total = items.length, delivered = 0, incidents = 0, onTime = 0, totalDelayMin = 0;
@@ -604,10 +611,10 @@ function calcularMetricas(payload){
     }
   }
 
-  const successRate = total ? (delivered/total)*100 : 0;
+  const successRate  = total ? (delivered/total)*100 : 0;
   const incidentRate = total ? (incidents/total)*100 : 0;
-  const onTimeRate = delivered ? (onTime/delivered)*100 : 0;
-  const avgDelay = (delivered && totalDelayMin) ? (totalDelayMin/delivered) : 0;
+  const onTimeRate   = delivered ? (onTime/delivered)*100 : 0;
+  const avgDelay     = (delivered && totalDelayMin) ? (totalDelayMin/delivered) : 0;
 
   return { total, delivered, successRate, incidentRate, onTimeRate, avgDelayMin: avgDelay };
 }
@@ -615,20 +622,28 @@ function calcularMetricas(payload){
 function renderResumen(now, prev){
   const t = document.getElementById('exec-summary-text');
   if (!t) return;
+
+  // Si no hay "previo" válido, no muestres variaciones
+  const hasPrev = !!(prev && (prev.total > 0 || prev.delivered > 0));
+
   const delta = (a,b) => (b === 0 ? 0 : ((a-b)/b)*100);
-  const dDeliver = Math.round(delta(now.delivered, prev.delivered));
-  const dSuccess = Math.round(delta(now.successRate, prev.successRate));
-  const dOnTime  = Math.round(delta(now.onTimeRate,  prev.onTimeRate));
-  const dDelay   = Math.round(((now.avgDelayMin - prev.avgDelayMin) / (prev.avgDelayMin || 1)) * 100);
+  const dDeliver = Math.round(delta(now.delivered,   prev?.delivered ?? 0));
+  const dSuccess = Math.round(delta(now.successRate, prev?.successRate ?? 0));
+  const dOnTime  = Math.round(delta(now.onTimeRate,  prev?.onTimeRate  ?? 0));
+  const dDelay   = Math.round(((now.avgDelayMin - (prev?.avgDelayMin ?? 0)) / ((prev?.avgDelayMin ?? 1))) * 100);
+
+  const chips = hasPrev
+    ? `${badgeDelta('Entregas', dDeliver)}
+       ${badgeDelta('Éxito', dSuccess)}
+       ${badgeDelta('A tiempo', dOnTime)}
+       ${badgeDelta('Retraso prom.', -dDelay, true)}`
+    : '';
 
   t.innerHTML = `
     <strong>Resumen:</strong>
-    ${now.total} paquetes; entregados <strong>${now.delivered}</strong>
+    ${now.total} paquete${now.total===1?'':'s'}; entregados <strong>${now.delivered}</strong>
     (éxito <strong>${pct(now.successRate)}</strong>, a tiempo <strong>${pct(now.onTimeRate)}</strong>).
-    ${badgeDelta('Entregas', dDeliver)}
-    ${badgeDelta('Éxito', dSuccess)}
-    ${badgeDelta('A tiempo', dOnTime)}
-    ${badgeDelta('Retraso prom.', -dDelay, true)}
+    ${chips}
   `;
 }
 
@@ -643,6 +658,58 @@ function badgeDelta(lbl, v, invert=false){
 }
 
 function pct(n){ return (isFinite(n)? n:0).toFixed(0) + '%'; }
+
+async function cargarTopRutas(startDate, endDate) {
+  const token = localStorage.getItem('token');
+  const qs = `?startDate=${startDate}&endDate=${endDate}`;
+  const res = await fetch(`/api/reports/route-performance${qs}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  renderTopRutas(data.data || data);
+}
+
+function renderTopRutas(rows) {
+  // Soporta varios shapes comunes
+  const arr = Array.isArray(rows) ? rows : (rows?.routes || rows?.items || []);
+  const norm = arr.map(r => ({
+    name: r.route || r.ruta || r.name || 'N/D',
+    delivered: Number(r.delivered ?? r.entregados ?? r.count ?? 0),
+    success: Number(r.successRate ?? r.exito ?? 0)
+  }))
+  .sort((a,b) => b.delivered - a.delivered)
+  .slice(0,5);
+
+  const cont = document.getElementById('top-routes');
+  if (!cont) return;
+
+  if (!norm.length) {
+    cont.innerHTML = `<div class="empty">Sin datos para el periodo</div>`;
+    return;
+  }
+
+  cont.innerHTML = `
+    <table class="mini-table">
+      <thead><tr><th>Ruta</th><th>Entregados</th><th>% Éxito</th></tr></thead>
+      <tbody>
+        ${norm.map(r => `
+          <tr>
+            <td>${r.name}</td>
+            <td>${r.delivered}</td>
+            <td>${r.success.toFixed(1)}%</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// (Opcional) si tienes endpoint de choferes, duplica la idea:
+async function cargarTopChoferes(startDate, endDate) {
+  const cont = document.getElementById('top-drivers');
+  if (!cont) return;
+  cont.innerHTML = `<div class="empty">Próximamente</div>`;
+}
 
 // ============================================
 // SEGUIMIENTO DETALLADO
