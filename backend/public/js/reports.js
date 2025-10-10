@@ -936,6 +936,29 @@ function renderEficienciaRutas(routes) {
   });
 }
 
+// Adapta la respuesta del backend /api/reports/route-performance
+function adaptarRendimientoRutas(api) {
+  const rows = Array.isArray(api) ? api : (api?.data?.routes || api?.data || []);
+  const effectivenessByRoute = rows.map(r => ({
+    name: r.routeName || r.nombre || r.ruta || 'N/D',
+    delivered: Number(r.metrics?.deliveredPackages ?? r.delivered ?? 0),
+    total: Number(r.metrics?.totalPackages ?? r.total ?? 0),
+    success: Number(r.metrics?.deliveryRate ?? r.successRate ?? 0),
+    avgMinutes: Number(r.metrics?.avgDeliveryTime ?? 0), // minutos
+    avgWeight: Number(r.metrics?.avgWeight ?? 0)
+  }));
+
+  const totalRoutes = effectivenessByRoute.length;
+  const avgSuccess = totalRoutes
+    ? effectivenessByRoute.reduce((s, r) => s + (r.success || 0), 0) / totalRoutes
+    : 0;
+
+  const bestRoute = [...effectivenessByRoute]
+    .sort((a, b) => (b.success - a.success) || (b.delivered - a.delivered))[0] || {name:'N/D', success:0};
+
+  return { totalRoutes, avgSuccess, bestRoute, effectivenessByRoute };
+}
+
 function renderRankingRutas(routes) {
   const tbody = document.getElementById('rankingRutasBody');
   if (!tbody) return;
@@ -977,9 +1000,11 @@ function renderKPIsRutas(perf) {
   // Asegúrate que tu HTML tenga estos IDs
   if ($('kpiRutasTotal')) $('kpiRutasTotal').textContent = perf.totalRoutes || 0;
   if ($('kpiEficienciaProm')) $('kpiEficienciaProm').textContent = `${(perf.avgSuccess || 0).toFixed(1)}%`;
-  if ($('kpiMejorTasa')) $('kpiMejorTasa').textContent = `${(perf.bestRoute.success || 0).toFixed(0)}%`;
+  if ($('kpi+++++++++++++++++++222qqqqqqqq2qTasa')) $('kpiMejorTasa').textContent = `${(perf.bestRoute.success || 0).toFixed(0)}%`;
   if ($('kpiMejorRuta')) $('kpiMejorRuta').textContent = perf.bestRoute.name || 'N/D';
 }
+
+
 
 // =========================
 // 4️⃣ GRÁFICO DE EFECTIVIDAD POR RUTA

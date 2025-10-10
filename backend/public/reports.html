@@ -563,6 +563,10 @@
 
         <!-- === Rendimiento de Rutas === -->
         <div id="tab-rutas" class="tab-panel"> 
+            <!-- KPIs de Rendimiento de Rutas -->
+            <!-- ⬇️ NUEVO: KPIs -->
+  <div class="metrics-grid" id="metricas-rutas" ...> … </div>
+
   <div class="cards-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card">
       <h3>📊 Efectividad por Ruta</h3>
@@ -570,9 +574,7 @@
     </div>
     <div class="card">
       <h3>📅 Distribución Semanal</h3>
-      <div id="distribucionSemanalPlaceholder" class="empty">
-        Próximamente
-      </div>
+      <div id="distribucionSemanalPlaceholder" class="empty">Próximamente</div>
     </div>
   </div>
 
@@ -582,11 +584,7 @@
       <table class="mini-table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Ruta</th>
-            <th>Entregados</th>
-            <th>% Éxito</th>
-            <th>Tiempo Prom. (min)</th>
+            <th>#</th><th>Ruta</th><th>Entregados</th><th>% Éxito</th><th>Tiempo Prom. (min)</th>
           </tr>
         </thead>
         <tbody id="rankingRutasBody">
@@ -596,6 +594,9 @@
     </div>
   </div>
 </div>
+
+
+  
 
         <!-- Análisis de Incidencias -->
         <div id="incidencias" class="tab-content">
