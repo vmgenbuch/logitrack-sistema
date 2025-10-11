@@ -69,6 +69,9 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
         .tab-button {
             flex: 1;
             padding: 15px 20px;
@@ -428,52 +431,7 @@
 </div>
 
             
-            <!--
-            <div class="filters mb-3" id="dashboard-date-filter" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-               <div class="filter-group">
-                  <label for="dashboardStartDate">Desde:</label>
-                  <input type="date" id="dashboardStartDate" />
-               </div>
-               <div class="filter-group">
-                  <label for="dashboardEndDate">Hasta:</label>
-                  <input type="date" id="dashboardEndDate" />
-               </div>
-               <button class="btn" id="btnFiltrarDashboard">Filtrar</button>
-               <button class="btn" id="btnHoyDashboard">Hoy</button>
-            </div>
-
-            <div class="metrics-grid" id="metricas-principales">
-                <div class="metric-card">
-                    <div class="metric-icon packages">📦</div>
-                    <div class="metric-value" id="totalPaquetes">1</div>
-                    <div class="metric-label">Total de Paquetes</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon delivered">✅</div>
-                    <div class="metric-value" id="paquetesEntregados">1</div>
-                    <div class="metric-label">Paquetes Entregados</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon pending">⏳</div>
-                    <div class="metric-value" id="paquetesPendientes">0</div>
-                    <div class="metric-label">Paquetes Pendientes</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon success">💯</div>
-                    <div class="metric-value" id="tasaExito">100%</div>
-                    <div class="metric-label">Tasa de Éxito</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon time">⏰</div>
-                    <div class="metric-value" id="tiempoPromedio">2 min</div>
-                    <div class="metric-label">Tiempo Promedio</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-icon efficiency">📈</div>
-                    <div class="metric-value" id="efectividadPromedio">100%</div>
-                    <div class="metric-label">Efectividad Promedio</div>
-                </div>
-            </div>-->
+            
 
             <div class="chart-grid">
                 <div class="chart-card">
@@ -598,72 +556,38 @@
 
   
 
-        <!-- Análisis de Incidencias -->
-        <div id="incidencias" class="tab-content">
-            <!-- Filtros de fecha con estilo consistente -->
-    <div class="metrics-grid" style="margin-bottom: 1.5rem;">
-        <div style="grid-column: 1 / -1; background: rgba(255, 255, 255, 0.1); padding: 1.5rem; border-radius: 12px;">
-            <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: rgba(255, 255, 255, 0.9);">📅 Filtrar por Fecha</h3>
-            <div style="display: flex; gap: 1rem; align-items: end;">
-                <div style="flex: 1;">
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">Desde:</label>
-                    <input type="date" id="incidentStartDate" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 0.95rem;">
-                </div>
-                
-                <div style="flex: 1;">
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: rgba(255, 255, 255, 0.7); font-size: 0.9rem;">Hasta:</label>
-                    <input type="date" id="incidentEndDate" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 0.95rem;">
-                </div>
-                
-                <button id="filterIncidentsBtn" style="padding: 0.75rem 1.5rem; background: #4299e1; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem;">
-                    Filtrar
-                </button>
-                
-                <button id="resetIncidentsBtn" style="padding: 0.75rem 1.5rem; background: #48bb78; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem;">
-                    Hoy
-                </button>
-            </div>
-        </div>
+        <!-- === Rendimiento de Rutas === -->
+<div id="rutas" class="tab-content">
+  <!-- KPIs de Rendimiento de Rutas -->
+  <div class="metrics-grid" id="metricas-rutas"></div>
+
+  <div class="cards-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="card">
+      <h3>📊 Efectividad por Ruta</h3>
+      <canvas id="eficienciaRutasChart" height="160"></canvas>
     </div>
-
-            <div class="metrics-grid" id="metricas-incidencias">
-                <!-- Las métricas de incidencias se cargarán dinámicamente -->
-            </div>
-
-            <div class="chart-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            ⚠️ Tipos de Incidencia
-                        </h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="tiposIncidenciaChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            📈 Tendencia de Incidencias
-                        </h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="tendenciaIncidenciasChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3 class="chart-title">🏢 Incidencias por Sucursal</h3>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="incidenciasSucursalChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="card">
+      <h3>📅 Distribución Semanal</h3>
+      <div id="distribucionSemanalPlaceholder" class="empty">Próximamente</div>
     </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h3>🏁 Ranking de Rutas</h3>
+    <div class="table-wrap">
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Ruta</th><th>Entregados</th><th>% Éxito</th><th>Tiempo Prom. (min)</th>
+          </tr>
+        </thead>
+        <tbody id="rankingRutasBody">
+          <tr><td colspan="5" class="empty">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
     <!-- IMPORTANTE: Cargar Chart.js ANTES de reports.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
