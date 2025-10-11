@@ -446,7 +446,7 @@ async function submitIncident(e) {
             description: description,
             photo: incidentPhotoData,
             reportedBy: user.fullName || user.username,
-            branchId: user.id,  // ✅ Usar user.id en lugar de user.branchId
+            branchId: user.id,
             branchName: user.sucursal || 'Sin Sucursal', 
             status: 'pending',
             createdAt: new Date().toISOString()
@@ -478,8 +478,9 @@ async function submitIncident(e) {
         return;
     }
     
+    // ✅ CAMBIAR ESTO: Usar snake_case
     const validationData = {
-        validacionReceptor: {
+        validacion_receptor: {  // ✅ snake_case
             fechaValidacion: new Date().toISOString(),
             receptorLocal: user.fullName || user.username,
             statusValidacion: 'incidencia',
@@ -509,7 +510,7 @@ async function submitIncident(e) {
         if (data.success) {
             showAlert('⚠️ Incidente reportado exitosamente', 'success');
             closeIncidentModal();
-            currentPackage = data.data;
+            currentPackage = mapPackageFromAPI(data.data);
             displayPackageDetails(currentPackage);
             loadPendingPackages();
         } else {
