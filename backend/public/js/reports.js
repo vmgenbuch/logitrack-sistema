@@ -6,6 +6,7 @@
 let datosGlobales = null;
 let chartsInstances = {};
 let tabActual = 'dashboard';
+let _chartEficienciaRutas = null;
 
 // ============================================
 // INICIALIZACIÓN
