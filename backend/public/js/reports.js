@@ -844,7 +844,7 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
     tbody.innerHTML = '';
     
     packages.forEach((pkg, index) => {
-        // ✅ MAPEO CORRECTO DE CAMPOS (snake_case → camelCase)
+        // ✅ MAPEO CORRECTO + CONVERSIÓN A NÚMEROS
         const paquete = {
             trackingNumber: pkg.tracking_number || pkg.trackingNumber,
             cliente: pkg.cliente,
@@ -852,12 +852,13 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
             ruta: pkg.ruta,
             tiempoSalidaReparto: pkg.tiempo_salida_reparto || pkg.tiempoSalidaReparto,
             tiempoEntrega: pkg.tiempo_entrega || pkg.tiempoEntrega,
-            diferenciaMinutos: pkg.diferencia_minutos || pkg.diferenciaMinutos,
-            pesoSalida: pkg.peso_salida || pkg.pesoSalida,
-            pesoEntrega: pkg.peso_entrega || pkg.pesoEntrega,
-            diferenciaPeso: pkg.diferencia_peso || pkg.diferenciaPeso,
-            efectividad: pkg.efectividad,
-            // ✅ CAMPOS IMPORTANTES PARA EVIDENCIAS
+            diferenciaMinutos: Number(pkg.diferencia_minutos || pkg.diferenciaMinutos || 0),
+            // ✅ CONVERTIR A NÚMERO
+            pesoSalida: Number(pkg.peso_salida || pkg.pesoSalida || 0),
+            pesoEntrega: Number(pkg.peso_entrega || pkg.pesoEntrega || 0),
+            diferenciaPeso: Number(pkg.diferencia_peso || pkg.diferenciaPeso || 0),
+            efectividad: Number(pkg.efectividad || 0),
+            // CAMPOS DE EVIDENCIAS
             fotoSalida: pkg.foto_salida || pkg.fotoSalida,
             fotoEntrega: pkg.foto_entrega || pkg.fotoEntrega,
             firmaDigital: pkg.firma_digital || pkg.firmaDigital,
@@ -867,9 +868,11 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
         
         console.log('📦 Paquete mapeado:', {
             tracking: paquete.trackingNumber,
+            pesoSalida: paquete.pesoSalida,
             fotoSalida: paquete.fotoSalida ? '✅ Tiene' : '❌ No tiene',
             fotoEntrega: paquete.fotoEntrega ? '✅ Tiene' : '❌ No tiene',
-            receptor: paquete.nombreQuienRecibio || 'Sin datos'
+            receptor: paquete.nombreQuienRecibio || 'Sin datos',
+            rawPkg: pkg // ✅ Para ver los datos originales
         });
         
         // Buscar el nombre de la ruta
@@ -905,11 +908,11 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
             <td>${nombreRuta}</td>
             <td>${tiempoSalida}</td>
             <td>${tiempoEntrega}</td>
-            <td>${formatearTiempo(paquete.diferenciaMinutos || 0)}</td>
-            <td>${(paquete.pesoSalida || 0).toFixed(2)} kg</td>
-            <td>${(paquete.pesoEntrega || 0).toFixed(2)} kg</td>
-            <td>${(paquete.diferenciaPeso || 0).toFixed(2)} kg</td>
-            <td>${(paquete.efectividad || 0)}%</td>
+            <td>${formatearTiempo(paquete.diferenciaMinutos)}</td>
+            <td>${paquete.pesoSalida.toFixed(2)} kg</td>
+            <td>${paquete.pesoEntrega.toFixed(2)} kg</td>
+            <td>${paquete.diferenciaPeso.toFixed(2)} kg</td>
+            <td>${paquete.efectividad.toFixed(0)}%</td>
         `;
         
         // Agregar click para expandir
