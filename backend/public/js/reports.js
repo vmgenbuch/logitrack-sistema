@@ -836,40 +836,84 @@ function formatearNombreRuta(ruta) {
 
 function actualizarTablaSeguimiento(packages, rutas = []) {
     const tbody = document.getElementById('cuerpoTablaSeguimiento');
-    if (!tbody) return;
+    if (!tbody) {
+        console.error('❌ No se encontró el tbody');
+        return;
+    }
     
     tbody.innerHTML = '';
     
     packages.forEach((pkg, index) => {
+        // ✅ MAPEO CORRECTO DE CAMPOS (snake_case → camelCase)
+        const paquete = {
+            trackingNumber: pkg.tracking_number || pkg.trackingNumber,
+            cliente: pkg.cliente,
+            direccion: pkg.direccion,
+            ruta: pkg.ruta,
+            tiempoSalidaReparto: pkg.tiempo_salida_reparto || pkg.tiempoSalidaReparto,
+            tiempoEntrega: pkg.tiempo_entrega || pkg.tiempoEntrega,
+            diferenciaMinutos: pkg.diferencia_minutos || pkg.diferenciaMinutos,
+            pesoSalida: pkg.peso_salida || pkg.pesoSalida,
+            pesoEntrega: pkg.peso_entrega || pkg.pesoEntrega,
+            diferenciaPeso: pkg.diferencia_peso || pkg.diferenciaPeso,
+            efectividad: pkg.efectividad,
+            // ✅ CAMPOS IMPORTANTES PARA EVIDENCIAS
+            fotoSalida: pkg.foto_salida || pkg.fotoSalida,
+            fotoEntrega: pkg.foto_entrega || pkg.fotoEntrega,
+            firmaDigital: pkg.firma_digital || pkg.firmaDigital,
+            nombreQuienRecibio: pkg.nombre_quien_recibio || pkg.nombreQuienRecibio,
+            cargoQuienRecibio: pkg.cargo_quien_recibio || pkg.cargoQuienRecibio
+        };
+        
+        console.log('📦 Paquete mapeado:', {
+            tracking: paquete.trackingNumber,
+            fotoSalida: paquete.fotoSalida ? '✅ Tiene' : '❌ No tiene',
+            fotoEntrega: paquete.fotoEntrega ? '✅ Tiene' : '❌ No tiene',
+            receptor: paquete.nombreQuienRecibio || 'Sin datos'
+        });
+        
         // Buscar el nombre de la ruta
-        let nombreRuta = pkg.ruta || 'N/A';
+        let nombreRuta = paquete.ruta || 'N/A';
         if (rutas.length > 0) {
-            const ruta = rutas.find(r => r.id === pkg.ruta);
-            nombreRuta = ruta ? ruta.nombre : 'Ruta no encontrada';
+            const ruta = rutas.find(r => r.id === paquete.ruta);
+            nombreRuta = ruta ? ruta.nombre : nombreRuta;
         }
         
-        let tiempoSalida = pkg.tiempoSalidaReparto || '-';
-        let tiempoEntrega = pkg.tiempoEntrega || '-';
-        const totalTiempo = pkg.diferenciaMinutos || 0;
+        const tiempoSalida = paquete.tiempoSalidaReparto 
+            ? new Date(paquete.tiempoSalidaReparto).toLocaleString('es-MX', { 
+                year: 'numeric', month: '2-digit', day: '2-digit', 
+                hour: '2-digit', minute: '2-digit' 
+              })
+            : '-';
+            
+        const tiempoEntrega = paquete.tiempoEntrega 
+            ? new Date(paquete.tiempoEntrega).toLocaleString('es-MX', { 
+                year: 'numeric', month: '2-digit', day: '2-digit', 
+                hour: '2-digit', minute: '2-digit' 
+              })
+            : '-';
         
         // Crear fila principal
         const fila = document.createElement('tr');
         fila.style.cursor = 'pointer';
+        fila.style.transition = 'background-color 0.3s';
+        fila.dataset.packageId = index;
+        
         fila.innerHTML = `
-            <td>${pkg.trackingNumber || 'N/A'}</td>
-            <td>${pkg.cliente || 'N/A'}</td>
+            <td>${paquete.trackingNumber}</td>
+            <td>${paquete.cliente || 'N/A'}</td>
             <td>${nombreRuta}</td>
             <td>${tiempoSalida}</td>
             <td>${tiempoEntrega}</td>
-            <td>${formatearTiempo(totalTiempo)}</td>
-            <td>${pkg.pesoSalida || 0} kg</td>
-            <td>${pkg.pesoEntrega || 0} kg</td>
-            <td>${pkg.diferenciaPeso || 0} kg</td>
-            <td>${pkg.efectividad || 0}%</td>
+            <td>${formatearTiempo(paquete.diferenciaMinutos || 0)}</td>
+            <td>${(paquete.pesoSalida || 0).toFixed(2)} kg</td>
+            <td>${(paquete.pesoEntrega || 0).toFixed(2)} kg</td>
+            <td>${(paquete.diferenciaPeso || 0).toFixed(2)} kg</td>
+            <td>${(paquete.efectividad || 0)}%</td>
         `;
         
-        // Agregar click para expandir/contraer
-        fila.addEventListener('click', () => {
+        // Agregar click para expandir
+        fila.addEventListener('click', function() {
             const detalleId = `detalle-${index}`;
             const existingDetail = document.getElementById(detalleId);
             
@@ -877,144 +921,134 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
                 existingDetail.remove();
                 fila.style.backgroundColor = '';
             } else {
-                // Crear fila de detalles
                 const filaDetalle = document.createElement('tr');
                 filaDetalle.id = detalleId;
                 filaDetalle.innerHTML = `
-                    <td colspan="10" style="padding: 0; background: rgba(0,0,0,0.2);">
-                        ${crearVistaDetalladaPaquete(pkg)}
+                    <td colspan="10" style="padding: 0; background: rgba(0,0,0,0.3);">
+                        <div style="padding: 20px; background: rgba(59, 130, 246, 0.1);">
+                            <h3 style="color: white; margin-bottom: 15px;">📋 Detalles del Paquete</h3>
+                            
+                            <!-- Información básica -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #3b82f6;">
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">📦 TRACKING</div>
+                                    <div style="color: white; font-size: 16px; font-weight: bold;">${paquete.trackingNumber}</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #10b981;">
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">👤 RECEPTOR</div>
+                                    <div style="color: white; font-size: 14px;">${paquete.nombreQuienRecibio || 'No registrado'}</div>
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${paquete.cargoQuienRecibio || 'No registrado'}</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">📍 DIRECCIÓN</div>
+                                    <div style="color: white; font-size: 13px;">${paquete.direccion || 'No especificada'}</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">⚖️ DIFERENCIA PESO</div>
+                                    <div style="color: white; font-size: 16px; font-weight: bold;">${(paquete.diferenciaPeso || 0).toFixed(2)} kg</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Fotos -->
+                            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                                <h4 style="color: white; margin-bottom: 15px;">📸 Evidencias Fotográficas</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                                    
+                                    <!-- Foto Salida -->
+                                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                            <span style="font-size: 24px;">📤</span>
+                                            <div>
+                                                <div style="color: white; font-weight: bold;">Salida (Recolección)</div>
+                                                <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${tiempoSalida}</div>
+                                            </div>
+                                        </div>
+                                        ${paquete.fotoSalida ? `
+                                            <img src="${paquete.fotoSalida}" 
+                                                 alt="Foto de salida" 
+                                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                                                 onclick="window.open('${paquete.fotoSalida}', '_blank')">
+                                            <div style="text-align: center; margin-top: 8px;">
+                                                <span style="color: #10b981; font-size: 12px;">✓ Foto capturada</span>
+                                            </div>
+                                        ` : `
+                                            <div style="width: 100%; height: 200px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4);">
+                                                <div style="text-align: center;">
+                                                    <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
+                                                    <div>Sin foto de salida</div>
+                                                </div>
+                                            </div>
+                                        `}
+                                    </div>
+
+                                    <!-- Foto Entrega -->
+                                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                            <span style="font-size: 24px;">📥</span>
+                                            <div>
+                                                <div style="color: white; font-weight: bold;">Entrega (Destino)</div>
+                                                <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${tiempoEntrega}</div>
+                                            </div>
+                                        </div>
+                                        ${paquete.fotoEntrega ? `
+                                            <img src="${paquete.fotoEntrega}" 
+                                                 alt="Foto de entrega" 
+                                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                                                 onclick="window.open('${paquete.fotoEntrega}', '_blank')">
+                                            <div style="text-align: center; margin-top: 8px;">
+                                                <span style="color: #10b981; font-size: 12px;">✓ Foto capturada</span>
+                                            </div>
+                                        ` : `
+                                            <div style="width: 100%; height: 200px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4);">
+                                                <div style="text-align: center;">
+                                                    <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
+                                                    <div>Sin foto de entrega</div>
+                                                </div>
+                                            </div>
+                                        `}
+                                    </div>
+
+                                    <!-- Firma Digital -->
+                                    ${paquete.firmaDigital ? `
+                                        <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                                <span style="font-size: 24px;">✍️</span>
+                                                <div>
+                                                    <div style="color: white; font-weight: bold;">Firma de Recepción</div>
+                                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${paquete.nombreQuienRecibio || 'Sin nombre'}</div>
+                                                </div>
+                                            </div>
+                                            <img src="${paquete.firmaDigital}" 
+                                                 alt="Firma digital" 
+                                                 style="width: 100%; height: 200px; object-fit: contain; background: white; border-radius: 8px; cursor: pointer;"
+                                                 onclick="window.open('${paquete.firmaDigital}', '_blank')">
+                                            <div style="text-align: center; margin-top: 8px;">
+                                                <span style="color: #10b981; font-size: 12px;">✓ Firma capturada</span>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: center; margin-top: 20px;">
+                                <button onclick="document.getElementById('${detalleId}').remove(); document.querySelector('[data-package-id=\\'${index}\\']').style.backgroundColor = ''" 
+                                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 8px 20px; border-radius: 6px; cursor: pointer;">
+                                    ✕ Cerrar Detalles
+                                </button>
+                            </div>
+                        </div>
                     </td>
                 `;
-                fila.after(filaDetalle);
+                
+                fila.insertAdjacentElement('afterend', filaDetalle);
                 fila.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
             }
         });
         
         tbody.appendChild(fila);
     });
-}
-
-// Nueva función para crear la vista detallada
-function crearVistaDetalladaPaquete(pkg) {
-    const fotoSalida = pkg.foto_salida || pkg.fotoSalida;
-    const fotoEntrega = pkg.foto_entrega || pkg.fotoEntrega;
-    const firmaDigital = pkg.firma_digital || pkg.firmaDigital;
-    const nombreReceptor = pkg.nombre_quien_recibio || pkg.nombreQuienRecibio || 'No registrado';
-    const cargoReceptor = pkg.cargo_quien_recibio || pkg.cargoQuienRecibio || 'No registrado';
     
-    return `
-        <div style="padding: 20px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);">
-            <!-- Información del Paquete -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #3b82f6;">
-                    <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 5px;">📦 TRACKING</div>
-                    <div style="color: white; font-size: 16px; font-weight: bold;">${pkg.trackingNumber || 'N/A'}</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #10b981;">
-                    <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 5px;">👤 RECEPTOR</div>
-                    <div style="color: white; font-size: 14px;">${nombreReceptor}</div>
-                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${cargoReceptor}</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #f59e0b;">
-                    <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 5px;">📍 DIRECCIÓN</div>
-                    <div style="color: white; font-size: 13px;">${pkg.direccion || 'No especificada'}</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
-                    <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 5px;">⚖️ DIFERENCIA PESO</div>
-                    <div style="color: white; font-size: 16px; font-weight: bold;">${pkg.diferenciaPeso || 0} kg</div>
-                </div>
-            </div>
-
-            <!-- Evidencias Fotográficas -->
-            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
-                <h4 style="color: white; margin-bottom: 15px; font-size: 16px;">📸 Evidencias Fotográficas</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-                    
-                    <!-- Foto de Salida -->
-                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <span style="font-size: 24px;">📤</span>
-                            <div>
-                                <div style="color: white; font-weight: bold;">Salida (Recolección)</div>
-                                <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${pkg.tiempo_salida_reparto || pkg.tiempoSalidaReparto || 'Sin registro'}</div>
-                            </div>
-                        </div>
-                        ${fotoSalida ? `
-                            <img src="${fotoSalida}" 
-                                 alt="Foto de salida" 
-                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer;"
-                                 onclick="window.open('${fotoSalida}', '_blank')">
-                            <div style="text-align: center; margin-top: 8px;">
-                                <span style="color: #10b981; font-size: 12px;">✓ Foto capturada</span>
-                            </div>
-                        ` : `
-                            <div style="width: 100%; height: 200px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4);">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
-                                    <div>Sin foto de salida</div>
-                                </div>
-                            </div>
-                        `}
-                    </div>
-
-                    <!-- Foto de Entrega -->
-                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <span style="font-size: 24px;">📥</span>
-                            <div>
-                                <div style="color: white; font-weight: bold;">Entrega (Destino)</div>
-                                <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${pkg.tiempo_entrega || pkg.tiempoEntrega || 'Sin registro'}</div>
-                            </div>
-                        </div>
-                        ${fotoEntrega ? `
-                            <img src="${fotoEntrega}" 
-                                 alt="Foto de entrega" 
-                                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer;"
-                                 onclick="window.open('${fotoEntrega}', '_blank')">
-                            <div style="text-align: center; margin-top: 8px;">
-                                <span style="color: #10b981; font-size: 12px;">✓ Foto capturada</span>
-                            </div>
-                        ` : `
-                            <div style="width: 100%; height: 200px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4);">
-                                <div style="text-align: center;">
-                                    <div style="font-size: 40px; margin-bottom: 10px;">📷</div>
-                                    <div>Sin foto de entrega</div>
-                                </div>
-                            </div>
-                        `}
-                    </div>
-
-                    <!-- Firma Digital -->
-                    ${firmaDigital ? `
-                        <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                                <span style="font-size: 24px;">✍️</span>
-                                <div>
-                                    <div style="color: white; font-weight: bold;">Firma de Recepción</div>
-                                    <div style="color: rgba(255,255,255,0.6); font-size: 12px;">${nombreReceptor}</div>
-                                </div>
-                            </div>
-                            <img src="${firmaDigital}" 
-                                 alt="Firma digital" 
-                                 style="width: 100%; height: 200px; object-fit: contain; background: white; border-radius: 8px; cursor: pointer;"
-                                 onclick="window.open('${firmaDigital}', '_blank')">
-                            <div style="text-align: center; margin-top: 8px;">
-                                <span style="color: #10b981; font-size: 12px;">✓ Firma capturada</span>
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-
-            <!-- Botón de cierre -->
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="this.closest('tr').remove(); this.closest('tbody').querySelector('tr[style*=background]').style.backgroundColor = ''" 
-                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                    ✕ Cerrar Detalles
-                </button>
-            </div>
-        </div>
-    `;
+    console.log(`✅ Tabla actualizada con ${packages.length} paquetes`);
 }
 
 /*function actualizarTablaSeguimiento(packages, rutas = []) {
