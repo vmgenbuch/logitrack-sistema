@@ -172,7 +172,7 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
     try {
         const userId = req.user.id;
         
-        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+        const userResult = await pool.query('SELECT * FROM users WHERE id::text = $1', [userId]);
         
         if (userResult.rows.length === 0) {
             return res.json({
@@ -237,7 +237,7 @@ router.get('/my-assignments', authorizeRoles('chofer', 'admin', 'logistics'), as
 router.get('/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT * FROM packages WHERE id = $1 OR tracking_number = $1',
+            'SELECT * FROM packages WHERE id::text = $1 OR tracking_number = $1',
             [req.params.id]
         );
 
@@ -286,7 +286,7 @@ router.post('/', [
         const { cliente, direccion, ruta, pesoEstimado, descripcion, prioridad, telefono, sucursalDestino } = req.body;
 
         // Verificar que la ruta existe
-        const routeCheck = await pool.query('SELECT id FROM routes WHERE id = $1', [ruta]);
+        const routeCheck = await pool.query('SELECT id FROM routes WHERE id::text = $1', [ruta]);
         if (routeCheck.rows.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -414,7 +414,7 @@ if (updates.status === 'delivered' && !updates.tiempo_entrega) {
         const setClause = fields.map((field, idx) => `${field} = $${idx + 1}`).join(', ');
         values.push(req.params.id);
 
-        const query = `UPDATE packages SET ${setClause} WHERE id = $${values.length} RETURNING *`;
+        const query = `UPDATE packages SET ${setClause} WHERE id::text = $${values.length} RETURNING *`;
         
         const result = await pool.query(query, values);
 
@@ -440,7 +440,7 @@ router.delete('/:id', authorizeRoles('admin', 'logistics'), async (req, res) => 
         const result = await pool.query(
             `UPDATE packages 
              SET status = 'cancelled'
-             WHERE id = $1
+             WHERE id::text = $1
              RETURNING *`,
             [req.params.id]
         );
