@@ -2,6 +2,44 @@ const API_BASE = window.API_BASE_URL || '/api';
 let currentPackage = null;
 let incidentPhotoData = null;
 
+// ✅ AGREGAR ESTA FUNCIÓN DE MAPEO
+function mapPackageFromAPI(pkg) {
+    if (!pkg) return null;
+    
+    return {
+        ...pkg,
+        // Mapear snake_case a camelCase
+        trackingNumber: pkg.tracking_number,
+        pesoEstimado: pkg.peso_estimado,
+        pesoSalida: pkg.peso_salida,
+        pesoEntrega: pkg.peso_entrega,
+        fechaCreacion: pkg.fecha_creacion,
+        tiempoSalidaReparto: pkg.tiempo_salida_reparto,
+        tiempoEntrega: pkg.tiempo_entrega,
+        diferenciaPeso: pkg.diferencia_peso,
+        nombreQuienRecibio: pkg.nombre_quien_recibio,
+        cargoQuienRecibio: pkg.cargo_quien_recibio,
+        fotoSalida: pkg.foto_salida,
+        fotoEntrega: pkg.foto_entrega,
+        firmaDigital: pkg.firma_digital,
+        sucursalDestino: pkg.sucursal_destino,
+        
+        // Mapear validacion_receptor (CRÍTICO)
+        validacionReceptor: pkg.validacion_receptor ? {
+            fechaValidacion: pkg.validacion_receptor.fechaValidacion,
+            receptorLocal: pkg.validacion_receptor.receptorLocal,
+            statusValidacion: pkg.validacion_receptor.statusValidacion || 'pendiente',
+            tipoIncidencia: pkg.validacion_receptor.tipoIncidencia,
+            descripcionIncidencia: pkg.validacion_receptor.descripcionIncidencia,
+            fotoIncidencia: pkg.validacion_receptor.fotoIncidencia,
+            severidad: pkg.validacion_receptor.severidad,
+            requiereDevolucion: pkg.validacion_receptor.requiereDevolucion
+        } : {
+            statusValidacion: 'pendiente'
+        }
+    };
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthentication();
@@ -89,7 +127,8 @@ async function searchPackage() {
         const data = await response.json();
         
         if (data.success) {
-            currentPackage = data.data;
+            //currentPackage = data.data;
+            currentPackage = mapPackageFromAPI(data.data); // ✅ Agregar mapeo
             displayPackageDetails(currentPackage);
         } else {
             showAlert('Paquete no encontrado', 'error');
@@ -277,7 +316,8 @@ async function approvePackage() {
         
         if (data.success) {
             showAlert('✅ Paquete aprobado exitosamente', 'success');
-            currentPackage = data.data;
+            //currentPackage = data.data;
+            currentPackage = mapPackageFromAPI(data.data); // ✅ Agregar mapeo
             displayPackageDetails(currentPackage);
             loadPendingPackages();
         } else {
@@ -563,7 +603,8 @@ async function selectPendingPackage(packageId) {
         const data = await response.json();
         
         if (data.success) {
-            currentPackage = data.data;
+            //currentPackage = data.data;
+            currentPackage = mapPackageFromAPI(data.data); // ✅ Agregar mapeo
             document.getElementById('trackingSearch').value = currentPackage.trackingNumber;
             displayPackageDetails(currentPackage);
             
