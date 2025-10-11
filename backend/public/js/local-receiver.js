@@ -80,7 +80,7 @@ async function searchPackage() {
     const token = localStorage.getItem('token');
     
     try {
-        const response = await fetch(`${API_BASE}/local/packages/tracking/${trackingNumber}`, {
+        const response = await fetch(`${API_BASE}/packages/${trackingNumber}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -182,8 +182,8 @@ function displayPackageDetails(pkg) {
         
         <div class="action-buttons">
             ${pkg.status === 'delivered' && validationWindow.canValidate && !isValidated ? `
-                <button class="btn btn-success" id="approvePackageBtn">✅ Aprobar</button>
-                <button class="btn btn-danger" id="openIncidentBtn">⚠️ Reportar Incidente</button>
+                <button class="btn btn-success" id="approvePackageBtn">
+                <button class="btn btn-danger" id="openIncidentBtn">
             ` : ''}
             ${pkg.status !== 'delivered' ? `
                 <button class="btn btn-danger" onclick="openIncidentModal()">⚠️ Reportar No Recibido</button>
@@ -521,7 +521,7 @@ function displayPendingPackages(packages) {
     container.innerHTML = packages.map(pkg => {
         const window = calculateValidationWindow(pkg);
         return `
-            <div class="pending-item" data-package-id="${pkg.id}" data-tracking="${pkg.trackingNumber}">
+            <div class="pending-item" data-package-id="${pkg.id}">
                 <div style="display: flex; justify-content: space-between; align-items: start;">
                     <div>
                         <strong>${pkg.trackingNumber}</strong>
@@ -543,49 +543,13 @@ function displayPendingPackages(packages) {
     // Agregar event listeners después de crear el HTML
     document.querySelectorAll('.pending-item').forEach(item => {
         item.addEventListener('click', function() {
-            const tracking = this.dataset.tracking || '';
-            if (tracking) {
-                selectPendingPackageByTracking(tracking);
-            } else {
-                const packageId = this.dataset.packageId;
-                selectPendingPackage(packageId); // fallback
-            }
+            const packageId = this.dataset.packageId;
+            selectPendingPackage(packageId);
         });
     });
 
 }
 
-
-async function selectPendingPackageByTracking(trackingNumber) {
-    const token = localStorage.getItem('token');
-    try {
-        const response = await fetch(`${API_BASE}/local/packages/tracking/${encodeURIComponent(trackingNumber)}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const text = await response.text();
-        if (!response.ok) {
-            console.error('API error', response.status, text);
-            showAlert('Error cargando paquete: ' + response.status + ' ' + text, 'error');
-            return;
-        }
-        let data;
-        try { data = JSON.parse(text); } catch(e) {
-            console.error('JSON parse error', e, text);
-            showAlert('Respuesta inválida del servidor', 'error');
-            return;
-        }
-        if (data.success) {
-            currentPackage = data.data;
-            document.getElementById('trackingSearch').value = currentPackage.trackingNumber;
-            displayPackageDetails(currentPackage);
-            document.getElementById('packageDetails').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-            showAlert(data.message || 'No se encontró el paquete', 'error');
-        }
-    } catch (error) {
-        showAlert('Error cargando paquete: ' + error.message, 'error');
-    }
-}
 async function selectPendingPackage(packageId) {
     const token = localStorage.getItem('token');
     
