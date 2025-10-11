@@ -80,7 +80,7 @@ async function searchPackage() {
     const token = localStorage.getItem('token');
     
     try {
-        const response = await fetch(`${API_BASE}/packages/tracking/${trackingNumber}`, {
+        const response = await fetch(`${API_BASE}/local/packages/tracking/${trackingNumber}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -559,7 +559,7 @@ function displayPendingPackages(packages) {
 async function selectPendingPackageByTracking(trackingNumber) {
     const token = localStorage.getItem('token');
     try {
-        const response = await fetch(`${API_BASE}/packages/tracking/${encodeURIComponent(trackingNumber)}`, {
+        const response = await fetch(`${API_BASE}/local/packages/tracking/${encodeURIComponent(trackingNumber)}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const text = await response.text();
