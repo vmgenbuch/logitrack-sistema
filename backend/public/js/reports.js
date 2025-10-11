@@ -1024,9 +1024,9 @@ const paquete = {
                             </div>
                             
                             <div style="text-align: center; margin-top: 20px;">
-                                <button onclick="document.getElementById('${detalleId}').remove(); document.querySelector('[data-package-id=\\'${index}\\']').style.backgroundColor = ''" 
-                                        style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 8px 20px; border-radius: 6px; cursor: pointer;">
-                                    ✕ Cerrar Detalles
+                                <button id="closeBtn-${detalleId}" class="btn-cerrar-detalle"
+                                       style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 8px 20px; border-radius: 6px; cursor: pointer;">
+                                  ✕ Cerrar Detalles
                                 </button>
                             </div>
                         </div>
@@ -1035,6 +1035,14 @@ const paquete = {
                 
                 fila.insertAdjacentElement('afterend', filaDetalle);
                 fila.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+
+                const closeBtn = document.getElementById(`closeBtn-${detalleId}`);
+                if (closeBtn) {
+                   closeBtn.addEventListener('click', function() {
+                       document.getElementById(detalleId).remove();
+                       fila.style.backgroundColor = '';
+                    });
+                }
             }
         });
         
