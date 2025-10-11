@@ -845,26 +845,26 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
     
     packages.forEach((pkg, index) => {
         // ✅ MAPEO CORRECTO + CONVERSIÓN A NÚMEROS
-        const paquete = {
-            trackingNumber: pkg.tracking_number || pkg.trackingNumber,
-            cliente: pkg.cliente,
-            direccion: pkg.direccion,
-            ruta: pkg.ruta,
-            tiempoSalidaReparto: pkg.tiempo_salida_reparto || pkg.tiempoSalidaReparto,
-            tiempoEntrega: pkg.tiempo_entrega || pkg.tiempoEntrega,
-            diferenciaMinutos: Number(pkg.diferencia_minutos || pkg.diferenciaMinutos || 0),
-            // ✅ CONVERTIR A NÚMERO
-            pesoSalida: Number(pkg.peso_salida || pkg.pesoSalida || 0),
-            pesoEntrega: Number(pkg.peso_entrega || pkg.pesoEntrega || 0),
-            diferenciaPeso: Number(pkg.diferencia_peso || pkg.diferenciaPeso || 0),
-            efectividad: Number(pkg.efectividad || 0),
-            // CAMPOS DE EVIDENCIAS
-            fotoSalida: pkg.foto_salida || pkg.fotoSalida,
-            fotoEntrega: pkg.foto_entrega || pkg.fotoEntrega,
-            firmaDigital: pkg.firma_digital || pkg.firmaDigital,
-            nombreQuienRecibio: pkg.nombre_quien_recibio || pkg.nombreQuienRecibio,
-            cargoQuienRecibio: pkg.cargo_quien_recibio || pkg.cargoQuienRecibio
-        };
+        // ✅ CAMBIAR ESTO:
+const paquete = {
+    trackingNumber: pkg.tracking_number || pkg.trackingNumber,
+    cliente: pkg.cliente,
+    direccion: pkg.direccion,
+    ruta: pkg.ruta,
+    // ✅ USAR LOS CAMPOS YA FORMATEADOS DEL BACKEND
+    tiempoSalidaReparto: pkg.salida_local || pkg.tiempoSalidaReparto || '-',
+    tiempoEntrega: pkg.entrega_local || pkg.tiempoEntrega || '-',
+    diferenciaMinutos: Number(pkg.diferencia_minutos || pkg.diferenciaMinutos || 0),
+    pesoSalida: Number(pkg.peso_salida || pkg.pesoSalida || 0),
+    pesoEntrega: Number(pkg.peso_entrega || pkg.pesoEntrega || 0),
+    diferenciaPeso: Number(pkg.diferencia_peso || pkg.diferenciaPeso || 0),
+    efectividad: Number(pkg.efectividad || 0),
+    fotoSalida: pkg.foto_salida || pkg.fotoSalida,
+    fotoEntrega: pkg.foto_entrega || pkg.fotoEntrega,
+    firmaDigital: pkg.firma_digital || pkg.firmaDigital,
+    nombreQuienRecibio: pkg.nombre_quien_recibio || pkg.nombreQuienRecibio,
+    cargoQuienRecibio: pkg.cargo_quien_recibio || pkg.cargoQuienRecibio
+};
         
         console.log('📦 Paquete mapeado:', {
             tracking: paquete.trackingNumber,
@@ -882,19 +882,9 @@ function actualizarTablaSeguimiento(packages, rutas = []) {
             nombreRuta = ruta ? ruta.nombre : nombreRuta;
         }
         
-        const tiempoSalida = paquete.tiempoSalidaReparto 
-            ? new Date(paquete.tiempoSalidaReparto).toLocaleString('es-MX', { 
-                year: 'numeric', month: '2-digit', day: '2-digit', 
-                hour: '2-digit', minute: '2-digit' 
-              })
-            : '-';
-            
-        const tiempoEntrega = paquete.tiempoEntrega 
-            ? new Date(paquete.tiempoEntrega).toLocaleString('es-MX', { 
-                year: 'numeric', month: '2-digit', day: '2-digit', 
-                hour: '2-digit', minute: '2-digit' 
-              })
-            : '-';
+        // ✅ USAR DIRECTAMENTE:
+        const tiempoSalida = paquete.tiempoSalidaReparto;
+        const tiempoEntrega = paquete.tiempoEntrega;
         
         // Crear fila principal
         const fila = document.createElement('tr');
