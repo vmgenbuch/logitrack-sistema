@@ -276,30 +276,35 @@ router.get('/detailed-tracking', async (req, res) => {
     const { rows } = await pool.query(query, params);
 
     const detailedReport = rows.map(pkg => {
-      const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
-      const pesoFinal   = pkg.peso_entrega || 0;
-      const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
-
-      let totalMinutos = 0;
-      if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
-        totalMinutos = Math.round((new Date(pkg.tiempo_entrega) - new Date(pkg.tiempo_salida_reparto)) / 60000);
-      }
-
-      return {
-        id: pkg.id,
-        trackingNumber: pkg.tracking_number,
-        cliente: pkg.cliente,
-        ruta: pkg.route_name || 'N/A',
-        tiempoSalidaReparto: pkg.salida_local || '-',
-        tiempoEntrega: pkg.entrega_local || '-',
-        totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
-        diferenciaMinutos: totalMinutos,
-        pesoSalida: pesoInicial,
-        pesoEntrega: pesoFinal,
-        diferenciaPeso,
-        efectividad: pkg.efectividad || 0
-      };
-    });
+  const pesoInicial = pkg.peso_salida || pkg.peso_estimado || 0;
+  const pesoFinal   = pkg.peso_entrega || 0;
+  const diferenciaPeso = pesoFinal > 0 ? pesoFinal - pesoInicial : 0;
+  let totalMinutos = 0;
+  if (pkg.tiempo_salida_reparto && pkg.tiempo_entrega) {
+    totalMinutos = Math.round((new Date(pkg.tiempo_entrega) - new Date(pkg.tiempo_salida_reparto)) / 60000);
+  }
+  return {
+    id: pkg.id,
+    trackingNumber: pkg.tracking_number,
+    cliente: pkg.cliente,
+    direccion: pkg.direccion, // ✅ AGREGAR
+    ruta: pkg.route_name || 'N/A',
+    tiempoSalidaReparto: pkg.salida_local || '-',
+    tiempoEntrega: pkg.entrega_local || '-',
+    totalTiempo: totalMinutos > 0 ? `${totalMinutos} min` : '0 min',
+    diferenciaMinutos: totalMinutos,
+    pesoSalida: pesoInicial,
+    pesoEntrega: pesoFinal,
+    diferenciaPeso,
+    efectividad: pkg.efectividad || 0,
+    // ✅ AGREGAR CAMPOS DE EVIDENCIAS
+    foto_salida: pkg.foto_salida,
+    foto_entrega: pkg.foto_entrega,
+    firma_digital: pkg.firma_digital,
+    nombre_quien_recibio: pkg.nombre_quien_recibio,
+    cargo_quien_recibio: pkg.cargo_quien_recibio
+  };
+});
 
     res.json({
       success: true,
