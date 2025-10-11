@@ -46,7 +46,7 @@ router.get('/packages/:identifier', authMiddleware, authorizeRoles('local', 'adm
             FROM packages p
             LEFT JOIN routes r ON p.ruta = r.id
             LEFT JOIN branches b ON p.sucursal_destino = b.id
-            WHERE p.id = $1 OR p.tracking_number = $1
+            WHERE p.id::text = $1 OR p.tracking_number = $1
             LIMIT 1
         `, [identifier]);
         
