@@ -542,7 +542,9 @@ router.get('/incidents', async (req, res) => {
 
         // Incidentes de paquetes
         const packageIncidentsResult = await pool.query(
-            `SELECT * FROM packages 
+            `SELECT p.*, b.nombre as branch_name 
+             FROM packages p
+             LEFT JOIN branches b ON p.sucursal_destino = b.id
              WHERE validacion_receptor->>'statusValidacion' = 'incidencia'
              AND DATE(fecha_creacion) BETWEEN $1 AND $2`,
             [start, end]
@@ -567,6 +569,17 @@ router.get('/incidents', async (req, res) => {
         standaloneIncidents.forEach(inc => {
             const type = inc.type || 'otro';
             incidentTypes[type] = (incidentTypes[type] || 0) + 1;
+        });
+
+        // ✅ NUEVO: Distribución por sucursal
+        const incidentsByBranch = {};
+        packageIncidents.forEach(pkg => {
+            const branch = pkg.branch_name || 'Sin Sucursal';
+            incidentsByBranch[branch] = (incidentsByBranch[branch] || 0) + 1;
+        });
+        standaloneIncidents.forEach(inc => {
+            const branch = inc.branch_name || 'Sin Sucursal';
+            incidentsByBranch[branch] = (incidentsByBranch[branch] || 0) + 1;
         });
 
         // Tendencia semanal
@@ -608,7 +621,8 @@ router.get('/incidents', async (req, res) => {
                     incidentRate: parseFloat(incidentRate)
                 },
                 distributions: {
-                    byType: incidentTypes
+                    byType: incidentTypes,
+                    byBranch: incidentsByBranch  // ✅ AGREGAR ESTO
                 },
                 trends: {
                     weekly: weeklyTrend
