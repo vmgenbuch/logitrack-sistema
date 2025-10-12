@@ -50,6 +50,7 @@ function setupEventListeners() {
     document.getElementById('applyFiltersBtn').addEventListener('click', loadIncidents);
     document.getElementById('resetFiltersBtn').addEventListener('click', resetFilters);
     document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('logoutBtn').addEventListener('click', logout);
     
     // Cerrar modal al hacer clic fuera
     document.getElementById('detailModal').addEventListener('click', (e) => {
@@ -210,29 +211,180 @@ function updateMetrics(metrics) {
     document.getElementById('resolvedIncidents').textContent = metrics.resolved || 0;
 }
 
-function renderIncidents(incidents) {
-    const container = document.getElementById('incidentsContainer');
-    
-    if (incidents.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">📭</div>
-                <h3>No hay incidentes</h3>
-                <p>No se encontraron incidentes con los filtros seleccionados</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = incidents.map(incident => createIncidentCard(incident)).join('');
-    
-    // Agregar event listeners
-    document.querySelectorAll('.incident-item').forEach(item => {
-        item.addEventListener('click', function() {
-            const incidentId = this.dataset.incidentId;
-            openIncidentDetail(incidentId);
-        });
+function renderIncidentDetail(incident) {
+  // Etiquetas
+  const typeLabels = {
+    'producto_dañado': 'Producto Dañado',
+    'producto_incompleto': 'Producto Incompleto',
+    'mal_estado': 'Mal Estado',
+    'no_corresponde': 'No Corresponde',
+    'no_recibido': 'No Recibido',
+    'otro': 'Otro'
+  };
+
+  const statusLabels = {
+    'pending': 'Pendiente',
+    'in_progress': 'En Proceso',
+    'resolved': 'Resuelto'
+  };
+
+  // ===== Normalizaciones =====
+  const MX_TZ = 'America/Monterrey';
+
+  const createdAt = new Date(incident.created_at || incident.createdAt || Date.now())
+    .toLocaleString('es-MX', { timeZone: MX_TZ });
+
+  const rawSeverity = (incident.severity || incident.severidad || 'baja').toString().toLowerCase();
+  const sevBadge = rawSeverity.replace(/\s+/g, '-');
+
+  const rawStatus = (incident.status || 'pending').toString().toLowerCase();
+  const statusBadge = rawStatus.replace(/_/g, '-');
+  const statusText = statusLabels[rawStatus] ?? 'Pendiente';
+
+  const typeKey = (incident.type || 'otro').toString().toLowerCase();
+  const typeText = typeLabels[typeKey] || (incident.type || 'Incidente');
+
+  const tracking =
+    incident.tracking_number ||
+    incident.trackingNumber ||
+    incident.package_tracking ||
+    'N/A';
+
+  const branch =
+    incident.branch_name ||
+    incident.branchName ||
+    incident.sucursal ||
+    incident.cliente ||
+    'N/A';
+
+  const reporter = incident.reported_by || incident.reportedBy || 'Desconocido';
+
+  const comments = Array.isArray(incident.comments) ? incident.comments : [];
+
+  // ===== Render =====
+  const modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = `
+    <!-- Información Básica -->
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-label">📦 TRACKING</div>
+        <div class="detail-value">${tracking}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">🏢 SUCURSAL</div>
+        <div class="detail-value">${branch}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">⚠️ TIPO</div>
+        <div class="detail-value">${typeText}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">🎚️ SEVERIDAD</div>
+        <div class="detail-value">
+          <span class="badge badge-${sevBadge}">${rawSeverity.toUpperCase()}</span>
+        </div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">📊 ESTADO</div>
+        <div class="detail-value">
+          <span class="badge badge-${statusBadge}">${statusText}</span>
+        </div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">👤 REPORTADO POR</div>
+        <div class="detail-value">${reporter}</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-label">📅 FECHA</div>
+        <div class="detail-value">${createdAt}</div>
+      </div>
+    </div>
+
+    <!-- Descripción -->
+    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin: 20px 0;">
+      <h3 style="margin-bottom: 10px;">📝 Descripción</h3>
+      <p style="color: rgba(255,255,255,0.9); line-height: 1.6;">${incident.description || 'Sin descripción'}</p>
+    </div>
+
+    <!-- Foto del Incidente -->
+    ${incident.photo ? `
+      <div class="photo-section">
+        <h3 style="margin-bottom: 15px;">📸 Evidencia Fotográfica</h3>
+        <div class="photo-container">
+          <img id="incidentPhotoImg" src="${incident.photo}" alt="Foto del incidente" style="cursor: pointer;">
+          <p style="margin-top: 10px; color: rgba(255,255,255,0.6); font-size: 13px;">
+            Haz clic en la imagen para verla en tamaño completo
+          </p>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Sección de Comentarios -->
+    <div class="comments-section">
+      <h3 style="margin-bottom: 15px;">💬 Comentarios y Seguimiento</h3>
+      <div id="commentsList">
+        ${renderComments(comments)}
+      </div>
+      <div class="add-comment">
+        <h4 style="margin-bottom: 10px;">Agregar Comentario</h4>
+        <textarea id="newCommentText" placeholder="Escribe tu comentario aquí..."></textarea>
+        <div class="action-buttons">
+          <button class="btn btn-primary" id="addCommentBtn">💬 Agregar Comentario</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+      <h3 style="margin-bottom: 15px;">⚙️ Acciones</h3>
+      <div class="action-buttons">
+        ${rawStatus !== 'resolved' ? `
+          <button class="btn btn-primary" id="markInProgressBtn">🔄 Marcar En Proceso</button>
+          <button class="btn" style="background: var(--success); color: white;" id="markResolvedBtn">✅ Marcar Resuelto</button>
+        ` : `
+          <button class="btn" style="background: var(--warning); color: white;" id="reopenBtn">↩️ Reabrir Incidente</button>
+        `}
+      </div>
+    </div>
+  `;
+
+  // ✅ AGREGAR EVENT LISTENERS DESPUÉS DE RENDERIZAR
+  
+  // Foto clickeable
+  const photoImg = document.getElementById('incidentPhotoImg');
+  if (photoImg) {
+    photoImg.addEventListener('click', function() {
+      window.open(incident.photo, '_blank');
     });
+  }
+
+  // Botón agregar comentario
+  const addCommentBtn = document.getElementById('addCommentBtn');
+  if (addCommentBtn) {
+    addCommentBtn.addEventListener('click', addComment);
+  }
+
+  // Botones de estado
+  const markInProgressBtn = document.getElementById('markInProgressBtn');
+  if (markInProgressBtn) {
+    markInProgressBtn.addEventListener('click', function() {
+      updateStatus('in_progress');
+    });
+  }
+
+  const markResolvedBtn = document.getElementById('markResolvedBtn');
+  if (markResolvedBtn) {
+    markResolvedBtn.addEventListener('click', function() {
+      updateStatus('resolved');
+    });
+  }
+
+  const reopenBtn = document.getElementById('reopenBtn');
+  if (reopenBtn) {
+    reopenBtn.addEventListener('click', function() {
+      updateStatus('pending');
+    });
+  }
 }
 
 function createIncidentCard(incident) {
@@ -625,6 +777,14 @@ function showError(message) {
     document.body.appendChild(alert);
     
     setTimeout(() => alert.remove(), 5000);
+}
+
+function logout() {
+    if (confirm('¿Estás seguro de cerrar sesión?')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        window.location.href = '/login.html';
+    }
 }
 
 function showSuccess(message) {
