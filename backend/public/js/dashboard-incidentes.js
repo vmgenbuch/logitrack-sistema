@@ -60,12 +60,86 @@ function setupEventListeners() {
 }
 
 function setDefaultDates() {
-    // Hoy en MX y hace 30 días en MX
-    const start = daysAgoInTZ(30, MX_TZ);
+    // ✅ hoy en MX (más amplio para ver todos los incidentes)
+    const start = formatYMDInTZ(new Date(), MX_TZ);
     const end   = formatYMDInTZ(new Date(), MX_TZ);
 
     document.getElementById('filterStartDate').value = start;
     document.getElementById('filterEndDate').value   = end;
+    
+    console.log('Filtros de fecha configurados:', { start, end });
+}
+
+// ✅ Agregar esta función para debugging
+async function loadIncidents() {
+    try {
+        showLoading();
+        
+        const token = localStorage.getItem('token');
+        const filters = {
+            startDate: document.getElementById('filterStartDate').value,
+            endDate: document.getElementById('filterEndDate').value,
+            status: document.getElementById('filterStatus').value,
+            severity: document.getElementById('filterSeverity').value,
+            type: document.getElementById('filterType').value
+        };
+        
+        console.log('🔍 Cargando incidentes con filtros:', filters);
+        
+        const params = new URLSearchParams();
+        Object.keys(filters).forEach(key => {
+            if (filters[key]) params.append(key, filters[key]);
+        });
+        
+        const url = `${API_BASE}/incidents?${params}`;
+        console.log('🌐 URL completa:', url);
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('📡 Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('📦 Data recibida:', data);
+        
+        if (data.success) {
+            const incidents = Array.isArray(data.data) ? data.data : (data.data?.incidents || []);
+            const metrics   = data.data?.metrics || {
+                total: incidents.length,
+                pending: incidents.filter(i => i.status === 'pending').length,
+                inProgress: incidents.filter(i => i.status === 'in_progress').length,
+                resolved: incidents.filter(i => i.status === 'resolved').length
+            };
+
+            console.log(`✅ Incidentes cargados: ${incidents.length}`);
+            console.log('📊 Métricas:', metrics);
+
+            allIncidents = incidents;
+            updateMetrics(metrics);
+            renderIncidents(allIncidents);
+        } else {
+            throw new Error(data.message || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('💥 Error cargando incidentes:', error);
+        console.error('Stack trace:', error.stack);
+        showError('Error al cargar los incidentes: ' + error.message);
+        
+        // Mostrar estado vacío
+        updateMetrics({ total: 0, pending: 0, inProgress: 0, resolved: 0 });
+        renderIncidents([]);
+    }
 }
 
 function resetFilters() {
