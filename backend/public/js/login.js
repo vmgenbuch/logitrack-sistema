@@ -67,7 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
                           break;
                         case 'local':  
                             window.location.href = 'dashboard-local.html';
-                        break;
+                            break;
+                        case 'supervisor':
+                            window.location.href = 'dashboard-incidentes.html';
+                            break;
                         default:
                           window.location.href = 'packages.html';
                 }
@@ -126,7 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             break;
                         case 'local':
                             window.location.href = 'dashboard-local.html';
-                            break;                        
+                            break;  
+                        case 'supervisor':
+                            window.location.href = 'dashboard-incidentes.html';
+                            break;                       
                         default:
                             window.location.href = 'packages.html';
                     }
