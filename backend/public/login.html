@@ -197,10 +197,10 @@
             <p>Sistema de Gestión de Distribución</p>
         </div>
 
-        <div class="demo-credentials">
+    <!--    <div class="demo-credentials">
     <h4>💡 Credenciales de Prueba:</h4>
     <p><strong>Usuario:</strong> admin@molecula83.com.mx</p>
-    <p><strong>Contraseña:</strong> admin123</p>
+    <p><strong>Contraseña:</strong> admin123</p>-->
 </div>
 
         <div id="alertContainer"></div>
@@ -310,6 +310,9 @@
                             case 'local':
                                 window.location.href = 'dashboard-local.html';
                                 break;
+                            case 'supervisor':
+                               window.location.href = 'dashboard-incidentes.html';
+                               break;
                             default:
                                 window.location.href = 'dashboard.html';
                         }
