@@ -61,9 +61,86 @@ router.post('/', authenticateToken, async (req, res) => {
 // ============================================
 // ENDPOINTS DEL DASHBOARD (admin y supervisor)
 // ============================================
+// GET /api/incidents  - Listado con filtros (dashboard)
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, status, severity, type, limit, offset } = req.query;
+    const userRole = req.user.role;
+
+    // Fija TZ de Monterrey (evita sorpresas con DATE())
+    await pool.query("SET timezone = 'America/Monterrey'");
+
+    let query = `
+      SELECT
+        i.*,
+        p.tracking_number AS package_tracking,
+        p.cliente,
+        -- intenta obtener la sucursal: primero por branch, si no existe, usa la del paquete/cliente
+        COALESCE(b.nombre, p.sucursal, p.cliente, 'Sin Sucursal') AS branch_name
+      FROM incidents i
+      LEFT JOIN packages p
+        ON i.package_id = p.id
+      LEFT JOIN branches b
+        ON i.branch_id::text = b.id::text
+      WHERE 1=1
+    `;
+
+    const params = [];
+    let param = 1;
+
+    // Filtros de fecha (opcionales)
+    if (startDate && endDate) {
+      query += ` AND DATE(i.created_at) BETWEEN $${param} AND $${param+1}`;
+      params.push(startDate, endDate); param += 2;
+    } else if (startDate) {
+      query += ` AND DATE(i.created_at) >= $${param}`;
+      params.push(startDate); param += 1;
+    } else if (endDate) {
+      query += ` AND DATE(i.created_at) <= $${param}`;
+      params.push(endDate); param += 1;
+    }
+
+    if (status)   { query += ` AND i.status = $${param}`;   params.push(status);   param++; }
+    if (severity) { query += ` AND i.severity = $${param}`; params.push(severity); param++; }
+    if (type)     { query += ` AND i.type = $${param}`;     params.push(type);     param++; }
+
+    query += ' ORDER BY i.created_at DESC';
+
+    // Paginación opcional
+    if (limit)  { query += ` LIMIT $${param}`;  params.push(parseInt(limit,10));  param++; }
+    if (offset) { query += ` OFFSET $${param}`; params.push(parseInt(offset,10)); param++; }
+
+    const result = await pool.query(query, params);
+    const incidents = result.rows.map(row => ({
+      ...row,
+      tracking_number: row.tracking_number || row.package_tracking
+    }));
+
+    // Métricas uniformes para todos los roles
+    const metrics = {
+      total: incidents.length,
+      pending: incidents.filter(i => i.status === 'pending').length,
+      inProgress: incidents.filter(i => i.status === 'in_progress').length,
+      resolved: incidents.filter(i => i.status === 'resolved').length
+    };
+
+    return res.json({
+      success: true,
+      data: { incidents, metrics }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo incidentes:', error);
+    return res.json({
+      success: true,
+      data: { incidents: [], metrics: { total: 0, pending: 0, inProgress: 0, resolved: 0 } }
+    });
+  }
+});
+
 
 // GET - Obtener incidentes con filtros avanzados (para dashboard)
-router.get('/', authenticateToken, async (req, res) => {
+/*router.get('/', authenticateToken, async (req, res) => {
     try {
         const { startDate, endDate, status, severity, type } = req.query;
         const userRole = req.user.role;
@@ -150,7 +227,7 @@ router.get('/', authenticateToken, async (req, res) => {
             data: { incidents: [], metrics: { total: 0, pending: 0, inProgress: 0, resolved: 0 } }
         });
     }
-});
+});*/
 
 // GET - Obtener incidente por ID con información completa
 router.get('/:id', authenticateToken, async (req, res) => {
