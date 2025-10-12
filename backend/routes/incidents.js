@@ -64,92 +64,47 @@ router.post('/', authenticateToken, async (req, res) => {
 // GET /api/incidents  - Listado con filtros (dashboard)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate, status, severity, type, limit, offset } = req.query;
+    const { startDate, endDate, status, severity, type } = req.query;
 
     // Fija TZ de Monterrey
     await pool.query("SET timezone = 'America/Monterrey'");
 
-    let query = `
-      SELECT DISTINCT ON (i.id)
-        i.id,
-        i.tracking_number,
-        i.package_id,
-        i.type,
-        i.severity,
-        i.description,
-        i.photo,
-        i.reported_by,
-        i.branch_id,
-        i.branch_name,
-        i.status,
-        i.created_at,
-        i.resolved_at,
-        i.comments,
-        -- Intentar obtener tracking del paquete si existe
-        COALESCE(i.tracking_number, p.tracking_number) AS final_tracking,
-        -- Intentar obtener sucursal
-        COALESCE(i.branch_name, b.nombre, p.sucursal, p.cliente) AS final_branch_name,
-        p.cliente
-      FROM incidents i
-      LEFT JOIN packages p ON i.package_id = p.id
-      LEFT JOIN branches b ON i.branch_id::text = b.id::text
-      WHERE 1=1
-    `;
-
+    // ✅ Query simple sin JOINS complejos
+    let query = `SELECT * FROM incidents WHERE 1=1`;
     const params = [];
     let param = 1;
 
-    // ✅ IMPORTANTE: Si NO hay filtros de fecha, usar últimos 90 días
+    // Si NO hay filtros de fecha, últimos 90 días
     if (!startDate && !endDate) {
-      query += ` AND i.created_at >= CURRENT_DATE - INTERVAL '90 days'`;
+      query += ` AND created_at >= CURRENT_DATE - INTERVAL '90 days'`;
     } else if (startDate && endDate) {
-      query += ` AND DATE(i.created_at) BETWEEN $${param} AND $${param+1}`;
+      query += ` AND DATE(created_at) BETWEEN $${param} AND $${param+1}`;
       params.push(startDate, endDate); 
       param += 2;
     } else if (startDate) {
-      query += ` AND DATE(i.created_at) >= $${param}`;
+      query += ` AND DATE(created_at) >= $${param}`;
       params.push(startDate); 
       param += 1;
     } else if (endDate) {
-      query += ` AND DATE(i.created_at) <= $${param}`;
+      query += ` AND DATE(created_at) <= $${param}`;
       params.push(endDate); 
       param += 1;
     }
 
-    if (status)   { query += ` AND i.status = $${param}`;   params.push(status);   param++; }
-    if (severity) { query += ` AND i.severity = $${param}`; params.push(severity); param++; }
-    if (type)     { query += ` AND i.type = $${param}`;     params.push(type);     param++; }
+    if (status)   { query += ` AND status = $${param}`;   params.push(status);   param++; }
+    if (severity) { query += ` AND severity = $${param}`; params.push(severity); param++; }
+    if (type)     { query += ` AND type = $${param}`;     params.push(type);     param++; }
 
-    query += ' ORDER BY i.id, i.created_at DESC';
+    query += ' ORDER BY created_at DESC LIMIT 100';
 
-    // Paginación opcional
-    if (limit)  { query += ` LIMIT $${param}`;  params.push(parseInt(limit,10));  param++; }
-    if (offset) { query += ` OFFSET $${param}`; params.push(parseInt(offset,10)); param++; }
-
-    console.log('Query incidents:', query);
-    console.log('Params:', params);
+    console.log('🔍 Query:', query);
+    console.log('📋 Params:', params);
 
     const result = await pool.query(query, params);
     
-    console.log(`Found ${result.rows.length} incidents`);
+    console.log(`✅ Found ${result.rows.length} incidents`);
 
-    const incidents = result.rows.map(row => ({
-      id: row.id,
-      tracking_number: row.final_tracking || row.tracking_number || 'Sin tracking',
-      package_id: row.package_id,
-      type: row.type,
-      severity: row.severity,
-      description: row.description,
-      photo: row.photo,
-      reported_by: row.reported_by,
-      branch_id: row.branch_id,
-      branch_name: row.final_branch_name || 'Sin sucursal',
-      status: row.status,
-      created_at: row.created_at,
-      resolved_at: row.resolved_at,
-      comments: row.comments,
-      cliente: row.cliente
-    }));
+    const incidents = result.rows;
 
     // Métricas
     const metrics = {
@@ -165,14 +120,13 @@ router.get('/', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error obteniendo incidentes:', error);
+    console.error('❌ Error obteniendo incidentes:', error);
     console.error('Stack:', error.stack);
     
-    // ✅ Devolver error real para debugging
     return res.status(500).json({
       success: false,
       message: 'Error obteniendo incidentes: ' + error.message,
-      data: { incidents: [], metrics: { total: 0, pending: 0, inProgress: 0, resolved: 0 } }
+      error: error.stack
     });
   }
 });
