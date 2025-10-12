@@ -436,87 +436,87 @@ async function submitIncident(e) {
     const severidad = document.getElementById('severidad').value;
     const description = document.getElementById('incidentDescription').value;
 
-    // Si NO hay ID de paquete, crear incidente independiente
-    if (!currentPackage.id) {
-        const incidentData = {
-            trackingNumber: currentPackage.trackingNumber,
-            packageId: null,
-            type: incidentType,
-            severity: severidad,
-            description: description,
-            photo: incidentPhotoData,
-            reportedBy: user.fullName || user.username,
-            branchId: user.id,
-            branchName: user.sucursal || 'Sin Sucursal', 
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-        
-        try {
-            const response = await fetch(`${API_BASE}/incidents`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(incidentData)
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                showAlert('⚠️ Incidente reportado exitosamente', 'success');
-                closeIncidentModal();
-                document.getElementById('incidentTrackingInput').value = '';
-                loadPendingPackages();
-            } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            showAlert('Error reportando incidente: ' + error.message, 'error');
-        }
-        return;
-    }
-    
-    // ✅ CAMBIAR ESTO: Usar snake_case
-    const validationData = {
-        validacion_receptor: {  // ✅ snake_case
-            fechaValidacion: new Date().toISOString(),
-            receptorLocal: user.fullName || user.username,
-            statusValidacion: 'incidencia',
-            tipoIncidencia: incidentType,
-            descripcionIncidencia: description,
-            fotoIncidencia: incidentPhotoData,
-            severidad: severidad,
-            requiereDevolucion: severidad === 'alta',
-            incidenciaResuelta: false,
-            fechaResolucion: null,
-            comentariosResolucion: null
-        }
+    // ✅ PASO 1: SIEMPRE crear registro en tabla incidents
+    const incidentData = {
+        trackingNumber: currentPackage.trackingNumber || 'Sin tracking',
+        packageId: currentPackage.id || null,
+        type: incidentType,
+        severity: severidad,
+        description: description,
+        photo: incidentPhotoData,
+        reportedBy: user.fullName || user.username,
+        branchId: user.id,
+        branchName: user.sucursal || user.fullName || 'Sin Sucursal', 
+        status: 'pending',
+        createdAt: new Date().toISOString()
     };
     
     try {
-        const response = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
-            method: 'PUT',
+        // Crear incidente en tabla incidents
+        const incidentResponse = await fetch(`${API_BASE}/incidents`, {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(validationData)
+            body: JSON.stringify(incidentData)
         });
         
-        const data = await response.json();
+        const incidentResult = await incidentResponse.json();
         
-        if (data.success) {
-            showAlert('⚠️ Incidente reportado exitosamente', 'success');
-            closeIncidentModal();
-            currentPackage = mapPackageFromAPI(data.data);
-            displayPackageDetails(currentPackage);
-            loadPendingPackages();
-        } else {
-            throw new Error(data.message);
+        if (!incidentResult.success) {
+            throw new Error(incidentResult.message || 'Error creando incidente');
         }
+        
+        // ✅ PASO 2: Si existe el paquete, TAMBIÉN actualizar validacion_receptor
+        if (currentPackage.id) {
+            const validationData = {
+                validacion_receptor: {
+                    fechaValidacion: new Date().toISOString(),
+                    receptorLocal: user.fullName || user.username,
+                    statusValidacion: 'incidencia',
+                    tipoIncidencia: incidentType,
+                    descripcionIncidencia: description,
+                    fotoIncidencia: incidentPhotoData,
+                    severidad: severidad,
+                    requiereDevolucion: severidad === 'alta',
+                    incidenciaResuelta: false,
+                    fechaResolucion: null,
+                    comentariosResolucion: null,
+                    incidentId: incidentResult.data.id // ✅ Vincular con el incidente creado
+                }
+            };
+            
+            const packageResponse = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(validationData)
+            });
+            
+            const packageResult = await packageResponse.json();
+            
+            if (packageResult.success) {
+                currentPackage = mapPackageFromAPI(packageResult.data);
+                displayPackageDetails(currentPackage);
+            }
+        }
+        
+        // ✅ Éxito
+        showAlert('⚠️ Incidente reportado exitosamente', 'success');
+        closeIncidentModal();
+        
+        // Limpiar búsqueda si no había paquete
+        if (!currentPackage.id) {
+            document.getElementById('incidentTrackingInput').value = '';
+        }
+        
+        loadPendingPackages();
+        
     } catch (error) {
+        console.error('Error reportando incidente:', error);
         showAlert('Error reportando incidente: ' + error.message, 'error');
     }
 }
