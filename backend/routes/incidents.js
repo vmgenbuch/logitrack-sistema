@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../database/connection');
 
-// Crear incidente
+// ============================================
+// ENDPOINTS PÚBLICOS (para cualquier usuario autenticado)
+// ============================================
+
+// POST - Crear incidente (receptor local, admin, supervisor)
 router.post('/', authenticateToken, async (req, res) => {
     try {
         const {
@@ -54,9 +58,82 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 });
 
-// Obtener todos los incidentes
+// ============================================
+// ENDPOINTS DEL DASHBOARD (admin y supervisor)
+// ============================================
+
+// GET - Obtener incidentes con filtros avanzados (para dashboard)
 router.get('/', authenticateToken, async (req, res) => {
     try {
+        const { startDate, endDate, status, severity, type } = req.query;
+        const userRole = req.user.role;
+        
+        // Si es admin o supervisor, usar query avanzada con filtros
+        if (userRole === 'admin' || userRole === 'supervisor') {
+            let query = `
+                SELECT 
+                    i.*,
+                    p.tracking_number as package_tracking,
+                    p.cliente,
+                    b.nombre as branch_name
+                FROM incidents i
+                LEFT JOIN packages p ON i.package_id = p.id
+                LEFT JOIN branches b ON i.branch_id::text = b.id::text
+                WHERE 1=1
+            `;
+            
+            const params = [];
+            let paramCount = 1;
+            
+            if (startDate && endDate) {
+                query += ` AND DATE(i.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
+                params.push(startDate, endDate);
+                paramCount += 2;
+            }
+            
+            if (status) {
+                query += ` AND i.status = $${paramCount}`;
+                params.push(status);
+                paramCount++;
+            }
+            
+            if (severity) {
+                query += ` AND i.severity = $${paramCount}`;
+                params.push(severity);
+                paramCount++;
+            }
+            
+            if (type) {
+                query += ` AND i.type = $${paramCount}`;
+                params.push(type);
+                paramCount++;
+            }
+            
+            query += ' ORDER BY i.created_at DESC';
+            
+            const result = await pool.query(query, params);
+            
+            // Calcular métricas
+            const metrics = {
+                total: result.rows.length,
+                pending: result.rows.filter(i => i.status === 'pending').length,
+                inProgress: result.rows.filter(i => i.status === 'in_progress').length,
+                resolved: result.rows.filter(i => i.status === 'resolved').length
+            };
+            
+            return res.json({
+                success: true,
+                data: {
+                    incidents: result.rows.map(row => ({
+                        ...row,
+                        tracking_number: row.tracking_number || row.package_tracking
+                    })),
+                    metrics
+                }
+            });
+        }
+        
+        // Para otros roles, query simple (comportamiento original)
         const result = await pool.query(
             'SELECT * FROM incidents ORDER BY created_at DESC'
         );
@@ -65,22 +142,33 @@ router.get('/', authenticateToken, async (req, res) => {
             success: true,
             data: result.rows
         });
+        
     } catch (error) {
         console.error('Error obteniendo incidentes:', error);
         res.json({
             success: true,
-            data: []
+            data: { incidents: [], metrics: { total: 0, pending: 0, inProgress: 0, resolved: 0 } }
         });
     }
 });
 
-// Obtener incidente por ID
+// GET - Obtener incidente por ID con información completa
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query(
-            'SELECT * FROM incidents WHERE id = $1',
-            [req.params.id]
-        );
+        const { id } = req.params;
+        
+        const result = await pool.query(`
+            SELECT 
+                i.*,
+                p.tracking_number as package_tracking,
+                p.cliente,
+                p.direccion,
+                b.nombre as branch_name
+            FROM incidents i
+            LEFT JOIN packages p ON i.package_id = p.id
+            LEFT JOIN branches b ON i.branch_id::text = b.id::text
+            WHERE i.id = $1
+        `, [id]);
         
         if (result.rows.length === 0) {
             return res.status(404).json({
@@ -89,10 +177,18 @@ router.get('/:id', authenticateToken, async (req, res) => {
             });
         }
         
+        const incident = result.rows[0];
+        
+        // Combinar tracking numbers si es necesario
+        if (!incident.tracking_number && incident.package_tracking) {
+            incident.tracking_number = incident.package_tracking;
+        }
+        
         res.json({
             success: true,
-            data: result.rows[0]
+            data: incident
         });
+        
     } catch (error) {
         console.error('Error obteniendo incidente:', error);
         res.status(500).json({
@@ -102,7 +198,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Actualizar estado de incidente
+// PUT - Actualizar estado de incidente (mantener compatibilidad)
 router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { status, resolution } = req.body;
@@ -134,6 +230,101 @@ router.put('/:id', authenticateToken, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error actualizando incidente'
+        });
+    }
+});
+
+// ============================================
+// NUEVOS ENDPOINTS PARA EL DASHBOARD
+// ============================================
+
+// POST - Agregar comentario (solo admin y supervisor)
+router.post('/:id/comments', authenticateToken, authorizeRoles('admin', 'supervisor'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { comment, author } = req.body;
+        
+        // Obtener incidente actual
+        const incident = await pool.query('SELECT comments FROM incidents WHERE id = $1', [id]);
+        
+        if (incident.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Incidente no encontrado'
+            });
+        }
+        
+        const currentComments = incident.rows[0].comments || [];
+        const newComment = {
+            text: comment,
+            author,
+            created_at: new Date().toISOString()
+        };
+        
+        currentComments.push(newComment);
+        
+        await pool.query(
+            'UPDATE incidents SET comments = $1 WHERE id = $2',
+            [JSON.stringify(currentComments), id]
+        );
+        
+        res.json({
+            success: true,
+            message: 'Comentario agregado exitosamente',
+            data: newComment
+        });
+        
+    } catch (error) {
+        console.error('Error agregando comentario:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error agregando comentario'
+        });
+    }
+});
+
+// PUT - Actualizar solo el estado (para el dashboard)
+router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'supervisor'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        
+        const validStatuses = ['pending', 'in_progress', 'resolved'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Estado inválido. Debe ser: pending, in_progress o resolved'
+            });
+        }
+        
+        const updateData = { status };
+        if (status === 'resolved') {
+            updateData.resolved_at = new Date().toISOString();
+        }
+        
+        const result = await pool.query(
+            'UPDATE incidents SET status = $1, resolved_at = $2 WHERE id = $3 RETURNING *',
+            [status, updateData.resolved_at || null, id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Incidente no encontrado'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: 'Estado actualizado exitosamente',
+            data: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Error actualizando estado:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error actualizando estado'
         });
     }
 });
