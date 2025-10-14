@@ -151,6 +151,8 @@ function setupEventListeners() {
     });
 }
 
+
+
 // Cargar datos iniciales
 async function loadData() {
     await Promise.all([
@@ -287,6 +289,46 @@ function populateBranchSelector() {
     
     console.log(`✅ Selector poblado con ${selectSucursal.options.length - 1} sucursales`);
 }
+
+// Poblar selectores de rutas
+function populateRouteSelectors() {
+    const selectRuta = document.getElementById('ruta');
+    const filterRuta = document.getElementById('routeFilter');
+    
+    if (selectRuta) {
+        selectRuta.innerHTML = '<option value="">Seleccionar ruta</option>';
+        
+        if (!Array.isArray(routes) || routes.length === 0) {
+            console.warn('⚠️ No hay rutas disponibles');
+            selectRuta.innerHTML += '<option value="" disabled>No hay rutas registradas</option>';
+        } else {
+            console.log(`📦 Poblando selector de rutas con ${routes.length} rutas`);
+            
+            routes.forEach(ruta => {
+                const option = document.createElement('option');
+                option.value = ruta.id;
+                option.textContent = `${ruta.nombre} - ${ruta.zona || ''}`;
+                selectRuta.appendChild(option);
+                console.log(`  ✔ ${option.textContent}`);
+            });
+        }
+    }
+    
+    // Poblar filtro de rutas también
+    if (filterRuta) {
+        filterRuta.innerHTML = '<option value="">Todas las rutas</option>';
+        
+        if (Array.isArray(routes) && routes.length > 0) {
+            routes.forEach(ruta => {
+                const option = document.createElement('option');
+                option.value = ruta.id;
+                option.textContent = ruta.nombre;
+                filterRuta.appendChild(option);
+            });
+        }
+    }
+}
+
 
 // Poblar selector de sucursales
 /*function populateBranchSelector() {
