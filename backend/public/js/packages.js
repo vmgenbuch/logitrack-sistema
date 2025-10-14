@@ -182,44 +182,114 @@ async function loadRoutes() {
 }
 
 async function loadBranches() {
+    const token = localStorage.getItem('token');
+    
     try {
-        const response = await fetch(`${API_BASE}/public/branches`);
+        console.log('🔍 Cargando sucursales desde /api/admin/branches/list...');
         
-        if (response.ok) {
-            const data = await response.json();
-            branches = data.success ? data.data.branches : [];
+        // ✅ CORREGIDO: Usar la ruta correcta
+        const response = await fetch(`${API_BASE}/admin/branches/list`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
+        
+        const data = await response.json();
+        
+        console.log('📋 Respuesta del servidor:', data);
+        
+        if (data.success && data.data && data.data.branches) {
+            branches = data.data.branches;
+            console.log(`✅ Total sucursales cargadas: ${branches.length}`);
+            
+            // Debug: Mostrar estructura de la primera sucursal
+            if (branches.length > 0) {
+                console.log('📦 Estructura de sucursal:', branches[0]);
+            }
+        } else {
+            console.warn('⚠️ No se encontraron sucursales');
+            branches = [];
+        }
+        
     } catch (error) {
-        console.error('Error cargando sucursales:', error);
+        console.error('❌ Error cargando sucursales:', error);
         branches = [];
     }
 }
 
 // Poblar selectores de rutas
-function populateRouteSelectors() {
-    const routeFilter = document.getElementById('routeFilter');
-    const routeForm = document.getElementById('ruta');
+function populateBranchSelector() {
+    const selectSucursal = document.getElementById('sucursalDestino');
     
-    routeFilter.innerHTML = '<option value="">Todas las rutas</option>';
-    routeForm.innerHTML = '<option value="">Seleccionar ruta</option>';
+    if (!selectSucursal) {
+        console.warn('⚠️ Elemento sucursalDestino no encontrado');
+        return;
+    }
     
-    routes.forEach(route => {
-        if (route.status === 'active') {
-            const filterOption = document.createElement('option');
-            filterOption.value = route.id;
-            filterOption.textContent = route.nombre;
-            routeFilter.appendChild(filterOption);
+    selectSucursal.innerHTML = '<option value="">Seleccionar sucursal</option>';
+    
+    if (!Array.isArray(branches) || branches.length === 0) {
+        console.warn('⚠️ No hay sucursales disponibles');
+        selectSucursal.innerHTML += '<option value="" disabled>No hay sucursales registradas</option>';
+        return;
+    }
+    
+    console.log(`📦 Poblando selector con ${branches.length} sucursales`);
+    
+    branches.forEach((sucursal, index) => {
+        try {
+            const option = document.createElement('option');
             
-            const formOption = document.createElement('option');
-            formOption.value = route.id;
-            formOption.textContent = `${route.nombre} (${route.capacidadMaxima} paq.)`;
-            routeForm.appendChild(formOption);
+            // ✅ Usar el ID correcto
+            option.value = sucursal.id;
+            
+            // Construir nombre para mostrar
+            const nombre = sucursal.nombre || `Sucursal ${index + 1}`;
+            const zona = sucursal.zona || '';
+            
+            option.textContent = zona ? `${nombre} - ${zona}` : nombre;
+            
+            // Construir dirección completa
+            let direccionCompleta = '';
+            
+            if (typeof sucursal.direccion === 'string') {
+                // Si direccion es string directo
+                direccionCompleta = sucursal.direccion;
+            } else if (sucursal.direccion && typeof sucursal.direccion === 'object') {
+                // Si direccion es objeto JSON
+                const dir = sucursal.direccion;
+                const partes = [
+                    dir.calle,
+                    dir.numero,
+                    dir.colonia,
+                    dir.ciudad,
+                    dir.estado,
+                    dir.codigoPostal || dir.codigo_postal
+                ].filter(Boolean);
+                direccionCompleta = partes.join(', ');
+            }
+            
+            option.dataset.address = direccionCompleta || 'Dirección no especificada';
+            option.dataset.nombre = nombre;
+            
+            selectSucursal.appendChild(option);
+            
+            console.log(`  ✓ ${option.textContent}`);
+            
+        } catch (error) {
+            console.error('❌ Error procesando sucursal:', error, sucursal);
         }
     });
+    
+    console.log(`✅ Selector poblado con ${selectSucursal.options.length - 1} sucursales`);
 }
 
 // Poblar selector de sucursales
-function populateBranchSelector() {
+/*function populateBranchSelector() {
     const selectSucursal = document.getElementById('sucursalDestino');
     
     if (!selectSucursal) return;
@@ -237,7 +307,7 @@ function populateBranchSelector() {
         option.dataset.nombre = sucursal.nombre;
         selectSucursal.appendChild(option);
     });
-}
+}*/
 
 // Cargar paquetes
 async function loadPackages() {
