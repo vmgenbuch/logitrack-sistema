@@ -59,12 +59,13 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // ============================================
-// ENDPOINTS DEL DASHBOARD (admin y supervisor)
+// ENDPOINTS DEL DASHBOARD (admin, supervisor y local)
 // ============================================
-// GET /api/incidents  - Listado con filtros (dashboard)
+
+// GET /api/incidents - Listado con filtros (dashboard)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate, status, severity, type } = req.query;
+    const { startDate, endDate, status, severity, type, reportedBy } = req.query;
 
     // Fija TZ de Monterrey
     await pool.query("SET timezone = 'America/Monterrey'");
@@ -91,9 +92,16 @@ router.get('/', authenticateToken, async (req, res) => {
       param += 1;
     }
 
-    if (status)   { query += ` AND status = $${param}`;   params.push(status);   param++; }
-    if (severity) { query += ` AND severity = $${param}`; params.push(severity); param++; }
-    if (type)     { query += ` AND type = $${param}`;     params.push(type);     param++; }
+    if (status)     { query += ` AND status = $${param}`;     params.push(status);     param++; }
+    if (severity)   { query += ` AND severity = $${param}`;   params.push(severity);   param++; }
+    if (type)       { query += ` AND type = $${param}`;       params.push(type);       param++; }
+    
+    // ✅ NUEVO: Filtro por quien reportó (para el dashboard del local)
+    if (reportedBy) { 
+      query += ` AND reported_by = $${param}`;   
+      params.push(reportedBy);   
+      param++; 
+    }
 
     query += ' ORDER BY created_at DESC LIMIT 100';
 
@@ -131,97 +139,6 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-
-// GET - Obtener incidentes con filtros avanzados (para dashboard)
-/*router.get('/', authenticateToken, async (req, res) => {
-    try {
-        const { startDate, endDate, status, severity, type } = req.query;
-        const userRole = req.user.role;
-        
-        // Si es admin o supervisor, usar query avanzada con filtros
-        if (userRole === 'admin' || userRole === 'supervisor') {
-            let query = `
-                SELECT 
-                    i.*,
-                    p.tracking_number as package_tracking,
-                    p.cliente,
-                    b.nombre as branch_name
-                FROM incidents i
-                LEFT JOIN packages p ON i.package_id = p.id
-                LEFT JOIN branches b ON i.branch_id::text = b.id::text
-                WHERE 1=1
-            `;
-            
-            const params = [];
-            let paramCount = 1;
-            
-            if (startDate && endDate) {
-                query += ` AND DATE(i.created_at) BETWEEN $${paramCount} AND $${paramCount + 1}`;
-                params.push(startDate, endDate);
-                paramCount += 2;
-            }
-            
-            if (status) {
-                query += ` AND i.status = $${paramCount}`;
-                params.push(status);
-                paramCount++;
-            }
-            
-            if (severity) {
-                query += ` AND i.severity = $${paramCount}`;
-                params.push(severity);
-                paramCount++;
-            }
-            
-            if (type) {
-                query += ` AND i.type = $${paramCount}`;
-                params.push(type);
-                paramCount++;
-            }
-            
-            query += ' ORDER BY i.created_at DESC';
-            
-            const result = await pool.query(query, params);
-            
-            // Calcular métricas
-            const metrics = {
-                total: result.rows.length,
-                pending: result.rows.filter(i => i.status === 'pending').length,
-                inProgress: result.rows.filter(i => i.status === 'in_progress').length,
-                resolved: result.rows.filter(i => i.status === 'resolved').length
-            };
-            
-            return res.json({
-                success: true,
-                data: {
-                    incidents: result.rows.map(row => ({
-                        ...row,
-                        tracking_number: row.tracking_number || row.package_tracking
-                    })),
-                    metrics
-                }
-            });
-        }
-        
-        // Para otros roles, query simple (comportamiento original)
-        const result = await pool.query(
-            'SELECT * FROM incidents ORDER BY created_at DESC'
-        );
-        
-        res.json({
-            success: true,
-            data: result.rows
-        });
-        
-    } catch (error) {
-        console.error('Error obteniendo incidentes:', error);
-        res.json({
-            success: true,
-            data: { incidents: [], metrics: { total: 0, pending: 0, inProgress: 0, resolved: 0 } }
-        });
-    }
-});*/
-
 // GET - Obtener incidente por ID con información completa
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
@@ -232,11 +149,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 i.*,
                 p.tracking_number as package_tracking,
                 p.cliente,
-                p.direccion,
-                b.nombre as branch_name
+                p.direccion
             FROM incidents i
             LEFT JOIN packages p ON i.package_id = p.id
-            LEFT JOIN branches b ON i.branch_id::text = b.id::text
             WHERE i.id = $1
         `, [id]);
         
