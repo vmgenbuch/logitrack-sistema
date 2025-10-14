@@ -185,10 +185,10 @@ async function loadBranches() {
     const token = localStorage.getItem('token');
     
     try {
-        console.log('🔍 Cargando sucursales desde /api/admin/branches/list...');
+        console.log('🔍 Cargando sucursales desde /api/admin/list...');
         
         // ✅ CORREGIDO: Usar la ruta correcta
-        const response = await fetch(`${API_BASE}/admin/branches/list`, {
+        const response = await fetch(`${API_BASE}/admin/list`, {
             headers: { 
                 'Authorization': `Bearer ${token}`
             }
