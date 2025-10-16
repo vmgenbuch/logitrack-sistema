@@ -3,8 +3,10 @@ let packages = [];
 let currentPackage = null;
 let cameraStream = null;
 let signaturePad = null;
-let pickupPhotoData = null;
-let deliveryPhotoData = null;
+
+// Arrays para almacenar múltiples fotos con sus pesos
+let pickupPhotos = []; // [{photoData, weight, timestamp}]
+let deliveryPhotos = []; // [{photoData, weight, timestamp}]
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,9 +31,6 @@ function checkAuthentication() {
 function setupEventListeners() {
     document.getElementById('logoutBtn').addEventListener('click', logout);
     document.getElementById('refreshBtn').addEventListener('click', loadPackages);
-    
-    // Event listeners de modales se agregarán cuando se abran los modales
-    // No aquí, porque los elementos pueden no existir aún
 }
 
 function setupPickupModalListeners() {
@@ -68,7 +67,6 @@ function setupDeliveryModalListeners() {
     if (clearSigBtn) clearSigBtn.addEventListener('click', clearSignature);
 }
 
-// ===== GESTIÓN DE PAQUETES =====
 // ===== GESTIÓN DE PAQUETES =====
 async function loadPackages() {
     const token = localStorage.getItem('token');
@@ -110,24 +108,6 @@ async function loadPackages() {
     }
 }
 
-/*function getUserRoute(user) {
-    if (user.ruta) return user.ruta;
-    
-    if (user.fullName && user.fullName.toLowerCase().includes('ruta')) {
-        const routeMatch = user.fullName.toLowerCase().match(/ruta(\d+)/);
-        if (routeMatch) return `ruta${routeMatch[1]}`;
-    }
-    
-    if (user.email && user.email.includes('ruta')) {
-        const routeMatch = user.email.match(/ruta(\d+)/);
-        if (routeMatch) return `ruta${routeMatch[1]}`;
-    }
-    
-    if (user.email === 'ruta1@molecula83.com.mx') return 'ruta1';
-    
-    return null;
-}*/
-
 function updateStatistics() {
     const total = packages.length;
     const pending = packages.filter(p => ['pending', 'assigned'].includes(p.status)).length;
@@ -165,7 +145,7 @@ function displayPackages() {
                 </div>
                 
                 <div style="display: flex; gap: 2rem; margin-bottom: 1rem; color: #718096;">
-                    <div><strong>Peso:</strong> ${pkg.pesoSalida} kg</div>
+                    <div><strong>Peso:</strong> ${pkg.pesoSalida || pkg.pesoEstimado || 'N/A'} kg</div>
                     <div><strong>Prioridad:</strong> ${getPriorityText(pkg.prioridad)}</div>
                 </div>
                 
@@ -176,12 +156,10 @@ function displayPackages() {
     
     container.innerHTML = html;
     
-    // Agregar event listeners a los botones después de renderizar
     setupPackageButtonListeners();
 }
 
 function setupPackageButtonListeners() {
-    // Botones de recoger paquete
     document.querySelectorAll('.btn-pickup').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const packageId = e.target.dataset.packageId;
@@ -189,7 +167,6 @@ function setupPackageButtonListeners() {
         });
     });
     
-    // Botones de entregar paquete
     document.querySelectorAll('.btn-deliver').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const packageId = e.target.dataset.packageId;
@@ -240,7 +217,9 @@ function openPickupModal(packageId) {
     currentPackage = packages.find(p => p.id === packageId);
     if (!currentPackage) return;
     
-    // Obtener peso inicial: priorizar pesoEstimado para paquetes nuevos
+    // Reset photos array
+    pickupPhotos = [];
+    
     const pesoInicial = currentPackage.pesoEstimado || currentPackage.pesoSalida || 0;
     
     document.getElementById('pickupInfo').innerHTML = `
@@ -251,7 +230,7 @@ function openPickupModal(packageId) {
         </div>
     `;
     
-    document.getElementById('pickupWeight').value = pesoInicial;
+    document.getElementById('pickupPhotosContainer').innerHTML = '';
     document.getElementById('pickupModal').classList.add('active');
     
     setupPickupModalListeners();
@@ -264,148 +243,11 @@ function closePickupModal() {
 }
 
 function resetPickupForm() {
-    document.getElementById('pickupWeight').value = '';
-    document.getElementById('pickupPhotoPreview').style.display = 'none';
-    pickupPhotoData = null;
+    pickupPhotos = [];
+    document.getElementById('pickupPhotosContainer').innerHTML = '';
 }
 
-async function confirmPickup() {
-    const weight = document.getElementById('pickupWeight').value;
-    
-    if (!weight) {
-        alert('Por favor ingresa el peso del paquete');
-        return;
-    }
-    
-    if (!pickupPhotoData) {
-        if (!confirm('¿Deseas continuar sin foto del paquete?')) {
-            return;
-        }
-    }
-    
-    const token = localStorage.getItem('token');
-    const updateData = {
-        status: 'in_transit',
-        tiempoSalidaReparto: new Date().toISOString(),
-        pesoSalida: parseFloat(weight),
-        fotoSalida: pickupPhotoData
-    };
-    
-    try {
-        const response = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (response.ok) {
-            showSuccess('Paquete recogido exitosamente');
-            closePickupModal();
-            await loadPackages();
-        } else {
-            throw new Error('Error al actualizar paquete');
-        }
-    } catch (error) {
-        showError('Error: ' + error.message);
-    }
-}
-
-// ===== MODAL: ENTREGAR PAQUETE =====
-function openDeliveryModal(packageId) {
-    currentPackage = packages.find(p => p.id === packageId);
-    if (!currentPackage) return;
-    
-    document.getElementById('deliveryInfo').innerHTML = `
-        <div style="background: #f7fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <strong>${currentPackage.trackingNumber}</strong><br>
-            Cliente: ${currentPackage.cliente}<br>
-            Dirección: ${currentPackage.direccion}<br>
-            Peso salida: ${currentPackage.pesoSalida} kg
-        </div>
-    `;
-    
-    document.getElementById('deliveryWeight').value = currentPackage.pesoSalida;
-    document.getElementById('deliveryModal').classList.add('active');
-    
-    // Configurar event listeners después de abrir el modal
-    setupDeliveryModalListeners();
-}
-
-function closeDeliveryModal() {
-    document.getElementById('deliveryModal').classList.remove('active');
-    stopCamera('delivery');
-    clearSignature();
-    resetDeliveryForm();
-}
-
-function resetDeliveryForm() {
-    document.getElementById('receiverName').value = '';
-    document.getElementById('receiverPosition').value = '';
-    document.getElementById('deliveryWeight').value = '';
-    document.getElementById('deliveryPhotoPreview').style.display = 'none';
-    deliveryPhotoData = null;
-}
-
-async function confirmDelivery() {
-    const receiverName = document.getElementById('receiverName').value;
-    const receiverPosition = document.getElementById('receiverPosition').value;
-    const weight = document.getElementById('deliveryWeight').value;
-    
-    if (!receiverName) {
-        alert('Por favor ingresa el nombre de quien recibe');
-        return;
-    }
-    
-    if (!deliveryPhotoData) {
-        if (!confirm('¿Deseas continuar sin foto de entrega?')) {
-            return;
-        }
-    }
-    
-    const signatureData = signaturePad.toDataURL();
-    if (isCanvasBlank(signaturePad.canvas)) {
-        alert('Por favor captura la firma del receptor');
-        return;
-    }
-    
-    const token = localStorage.getItem('token');
-    const updateData = {
-        status: 'delivered',
-        tiempoEntrega: new Date().toISOString(),
-        pesoEntrega: parseFloat(weight),
-        nombreQuienRecibio: receiverName,
-        cargoQuienRecibio: receiverPosition,
-        fotoEntrega: deliveryPhotoData,
-        firmaDigital: signatureData,
-        horaFirma: new Date().toISOString()
-    };
-    
-    try {
-        const response = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        if (response.ok) {
-            showSuccess('Paquete entregado exitosamente');
-            closeDeliveryModal();
-            await loadPackages();
-        } else {
-            throw new Error('Error al actualizar paquete');
-        }
-    } catch (error) {
-        showError('Error: ' + error.message);
-    }
-}
-
-// ===== CÁMARA =====
+// ===== CAPTURA DE FOTOS CON PESO =====
 async function startCamera(type) {
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ 
@@ -425,7 +267,6 @@ async function startCamera(type) {
 function capturePhoto(type) {
     const video = document.getElementById(`${type}CameraPreview`);
     const canvas = document.getElementById(`${type}Canvas`);
-    const preview = document.getElementById(`${type}PhotoPreview`);
     
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -435,16 +276,126 @@ function capturePhoto(type) {
     
     const photoData = canvas.toDataURL('image/jpeg', 0.8);
     
-    if (type === 'pickup') {
-        pickupPhotoData = photoData;
-    } else {
-        deliveryPhotoData = photoData;
+    // Solicitar el peso para esta foto
+    const weight = prompt('Ingresa el peso mostrado en la báscula para esta foto (kg):');
+    
+    if (weight === null) {
+        // Usuario canceló
+        return;
     }
     
-    preview.src = photoData;
-    preview.style.display = 'block';
+    const weightNum = parseFloat(weight);
+    if (isNaN(weightNum) || weightNum <= 0) {
+        alert('Por favor ingresa un peso válido');
+        return;
+    }
+    
+    // Agregar foto al array correspondiente
+    const photoObj = {
+        photoData: photoData,
+        weight: weightNum,
+        timestamp: new Date().toISOString()
+    };
+    
+    if (type === 'pickup') {
+        pickupPhotos.push(photoObj);
+        displayPickupPhotos();
+    } else {
+        deliveryPhotos.push(photoObj);
+        displayDeliveryPhotos();
+    }
     
     stopCamera(type);
+}
+
+function displayPickupPhotos() {
+    const container = document.getElementById('pickupPhotosContainer');
+    
+    if (pickupPhotos.length === 0) {
+        container.innerHTML = '<p style="color: #718096; text-align: center;">No hay fotos capturadas</p>';
+        return;
+    }
+    
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">';
+    
+    pickupPhotos.forEach((photo, index) => {
+        html += `
+            <div class="photo-card">
+                <img src="${photo.photoData}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+                <div style="padding: 0.5rem; background: #f7fafc; margin-top: 0.5rem; border-radius: 4px;">
+                    <strong>Peso: ${photo.weight} kg</strong>
+                    <button class="btn-delete-photo" data-type="pickup" data-index="${index}" 
+                            style="float: right; background: #ef4444; color: white; border: none; 
+                            padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+    // Event listeners para eliminar fotos
+    document.querySelectorAll('.btn-delete-photo[data-type="pickup"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            deletePhoto('pickup', index);
+        });
+    });
+}
+
+function displayDeliveryPhotos() {
+    const container = document.getElementById('deliveryPhotosContainer');
+    
+    if (deliveryPhotos.length === 0) {
+        container.innerHTML = '<p style="color: #718096; text-align: center;">No hay fotos capturadas</p>';
+        return;
+    }
+    
+    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">';
+    
+    deliveryPhotos.forEach((photo, index) => {
+        html += `
+            <div class="photo-card">
+                <img src="${photo.photoData}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+                <div style="padding: 0.5rem; background: #f7fafc; margin-top: 0.5rem; border-radius: 4px;">
+                    <strong>Peso: ${photo.weight} kg</strong>
+                    <button class="btn-delete-photo" data-type="delivery" data-index="${index}" 
+                            style="float: right; background: #ef4444; color: white; border: none; 
+                            padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+    // Event listeners para eliminar fotos
+    document.querySelectorAll('.btn-delete-photo[data-type="delivery"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            deletePhoto('delivery', index);
+        });
+    });
+}
+
+function deletePhoto(type, index) {
+    if (!confirm('¿Estás seguro de eliminar esta foto?')) {
+        return;
+    }
+    
+    if (type === 'pickup') {
+        pickupPhotos.splice(index, 1);
+        displayPickupPhotos();
+    } else {
+        deliveryPhotos.splice(index, 1);
+        displayDeliveryPhotos();
+    }
 }
 
 function stopCamera(type) {
@@ -453,6 +404,159 @@ function stopCamera(type) {
         cameraStream = null;
     }
     document.getElementById(`${type}CameraContainer`).style.display = 'none';
+}
+
+async function confirmPickup() {
+    if (pickupPhotos.length === 0) {
+        if (!confirm('¿Deseas continuar sin fotos del paquete en la báscula?')) {
+            return;
+        }
+    }
+    
+    // Calcular peso promedio de todas las fotos
+    const pesoPromedio = pickupPhotos.length > 0 
+        ? pickupPhotos.reduce((sum, p) => sum + p.weight, 0) / pickupPhotos.length 
+        : parseFloat(currentPackage.pesoEstimado || 0);
+    
+    const token = localStorage.getItem('token');
+    const updateData = {
+        status: 'in_transit',
+        tiempoSalidaReparto: new Date().toISOString(),
+        pesoSalida: pesoPromedio,
+        fotosBascula: pickupPhotos, // Array de fotos con pesos
+        evidenciasPeso: {
+            fotos: pickupPhotos.map(p => ({
+                url: p.photoData,
+                peso: p.weight,
+                timestamp: p.timestamp
+            }))
+        }
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            showSuccess(`Paquete recogido exitosamente. Peso promedio: ${pesoPromedio.toFixed(2)} kg`);
+            closePickupModal();
+            await loadPackages();
+        } else {
+            throw new Error('Error al actualizar paquete');
+        }
+    } catch (error) {
+        showError('Error: ' + error.message);
+    }
+}
+
+// ===== MODAL: ENTREGAR PAQUETE =====
+function openDeliveryModal(packageId) {
+    currentPackage = packages.find(p => p.id === packageId);
+    if (!currentPackage) return;
+    
+    // Reset photos array
+    deliveryPhotos = [];
+    
+    document.getElementById('deliveryInfo').innerHTML = `
+        <div style="background: #f7fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <strong>${currentPackage.trackingNumber}</strong><br>
+            Cliente: ${currentPackage.cliente}<br>
+            Dirección: ${currentPackage.direccion}<br>
+            Peso salida: ${currentPackage.pesoSalida} kg
+        </div>
+    `;
+    
+    document.getElementById('deliveryPhotosContainer').innerHTML = '';
+    document.getElementById('deliveryModal').classList.add('active');
+    
+    setupDeliveryModalListeners();
+}
+
+function closeDeliveryModal() {
+    document.getElementById('deliveryModal').classList.remove('active');
+    stopCamera('delivery');
+    clearSignature();
+    resetDeliveryForm();
+}
+
+function resetDeliveryForm() {
+    document.getElementById('receiverName').value = '';
+    document.getElementById('receiverPosition').value = '';
+    deliveryPhotos = [];
+    document.getElementById('deliveryPhotosContainer').innerHTML = '';
+}
+
+async function confirmDelivery() {
+    const receiverName = document.getElementById('receiverName').value;
+    const receiverPosition = document.getElementById('receiverPosition').value;
+    
+    if (!receiverName) {
+        alert('Por favor ingresa el nombre de quien recibe');
+        return;
+    }
+    
+    if (deliveryPhotos.length === 0) {
+        if (!confirm('¿Deseas continuar sin fotos de entrega?')) {
+            return;
+        }
+    }
+    
+    const signatureData = signaturePad.toDataURL();
+    if (isCanvasBlank(signaturePad.canvas)) {
+        alert('Por favor captura la firma del receptor');
+        return;
+    }
+    
+    // Calcular peso promedio de todas las fotos de entrega
+    const pesoPromedio = deliveryPhotos.length > 0 
+        ? deliveryPhotos.reduce((sum, p) => sum + p.weight, 0) / deliveryPhotos.length 
+        : parseFloat(currentPackage.pesoSalida || 0);
+    
+    const token = localStorage.getItem('token');
+    const updateData = {
+        status: 'delivered',
+        tiempoEntrega: new Date().toISOString(),
+        pesoEntrega: pesoPromedio,
+        nombreQuienRecibio: receiverName,
+        cargoQuienRecibio: receiverPosition,
+        firmaDigital: signatureData,
+        horaFirma: new Date().toISOString(),
+        fotosEntrega: deliveryPhotos, // Array de fotos con pesos
+        evidenciasEntrega: {
+            fotos: deliveryPhotos.map(p => ({
+                url: p.photoData,
+                peso: p.weight,
+                timestamp: p.timestamp
+            }))
+        }
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE}/packages/${currentPackage.id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            showSuccess(`Paquete entregado exitosamente. Peso promedio: ${pesoPromedio.toFixed(2)} kg`);
+            closeDeliveryModal();
+            await loadPackages();
+        } else {
+            throw new Error('Error al actualizar paquete');
+        }
+    } catch (error) {
+        showError('Error: ' + error.message);
+    }
 }
 
 // ===== FIRMA DIGITAL =====
@@ -508,7 +612,6 @@ function initSignaturePad() {
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
     
-    // Touch events
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         startDrawing(e);

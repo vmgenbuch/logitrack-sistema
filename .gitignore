@@ -5,3 +5,10 @@ node_modules/
 data/*.json
 !data/.gitkeep
 frontend/
+backend/database/migracion_multiples_fotos.sql
+*.sql
+backend/data/*.sql
+*.sql
+*.csv
+backup_*
+*.backup
