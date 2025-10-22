@@ -187,10 +187,10 @@ async function loadBranches() {
     const token = localStorage.getItem('token');
     
     try {
-        console.log('🔍 Cargando sucursales desde /api/admin/list...');
+        console.log('🔍 Cargando sucursales desde /api/admin/branches...');
         
-        // ✅ CORREGIDO: Usar la ruta correcta
-        const response = await fetch(`${API_BASE}/admin/list`, {
+        // ✅ CORRECTO: Endpoint correcto de sucursales
+        const response = await fetch(`${API_BASE}/admin/branches`, {
             headers: { 
                 'Authorization': `Bearer ${token}`
             }
@@ -1352,4 +1352,3 @@ function logout() {
     localStorage.removeItem('userData');
     window.location.href = 'login.html';
 }
-
