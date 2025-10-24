@@ -437,14 +437,14 @@ router.post('/:id/pickup-photos', authorizeRoles('chofer'), async (req, res) => 
         const ahora = timeResult.rows[0].now;
         
         const result = await pool.query(
-            `UPDATE packages 
-             SET status = 'in_transit',
-                 tiempo_salida_reparto = $1,
-                 peso_salida = $2,
-                 fotos_bascula = $3
-             WHERE id::text = $4 OR tracking_number = $4
-             RETURNING *`,
-            [ahora, pesoTotal, JSON.stringify(fotosBascula), id]
+           `UPDATE packages 
+            SET status = 'in_transit',
+                tiempo_salida_reparto = NOW(),
+                peso_salida = $1,
+                fotos_bascula = $2
+            WHERE id::text = $3 OR tracking_number = $3
+            RETURNING *`,
+            [pesoTotal, JSON.stringify(fotosBascula), id]
         );
         
         if (result.rows.length === 0) {
@@ -507,18 +507,18 @@ router.post('/:id/delivery-photos', authorizeRoles('chofer'), async (req, res) =
         const ahora = timeResult.rows[0].now;
         
         const result = await pool.query(
-            `UPDATE packages 
-             SET status = 'delivered',
-                 tiempo_entrega = $1,
-                 peso_entrega = $2,
-                 fotos_entrega = $3,
-                 nombre_quien_recibio = $4,
-                 cargo_quien_recibio = $5,
-                 firma_digital = $6,
-                 hora_firma = $1
-             WHERE id::text = $7 OR tracking_number = $7
-             RETURNING *`,
-            [ahora, pesoTotal, JSON.stringify(fotosEntrega), nombreQuienRecibio, cargoQuienRecibio, firmaDigital, id]
+           `UPDATE packages 
+            SET status = 'delivered',
+                tiempo_entrega = NOW(),
+                peso_entrega = $1,
+                fotos_entrega = $2,
+                nombre_quien_recibio = $3,
+                cargo_quien_recibio = $4,
+                firma_digital = $5,
+                hora_firma = NOW()
+            WHERE id::text = $6 OR tracking_number = $6
+            RETURNING *`,
+            [pesoTotal, JSON.stringify(fotosEntrega), nombreQuienRecibio, cargoQuienRecibio, firmaDigital, id]
         );
         
         if (result.rows.length === 0) {
